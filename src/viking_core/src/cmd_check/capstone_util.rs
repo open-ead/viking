@@ -1,10 +1,11 @@
-use anyhow::{bail, Result};
+// re-exports
 use capstone as cs;
+use cs::RegId;
+use cs::arch::ArchOperand;
 use cs::arch::arm64::{Arm64Insn, Arm64OpMem, Arm64Operand, Arm64OperandType};
-use cs::{arch::ArchOperand, RegId};
 
-pub fn translate_cs_error<T>(err: cs::Error) -> Result<T> {
-    bail!("capstone error: {}", err)
+pub fn translate_cs_error<T>(err: cs::Error) -> cu::Result<T> {
+    cu::bail!("capstone error: {}", err)
 }
 
 #[inline]
@@ -22,7 +23,7 @@ pub fn try_map_two<'a, T, R, F: FnMut(&'a T) -> Result<R, cs::Error>>(
     x: &'a T,
     y: &'a T,
     mut f: F,
-) -> Result<(R, R)> {
+) -> cu::Result<(R, R)> {
     Ok((
         f(x).or_else(translate_cs_error)?,
         f(y).or_else(translate_cs_error)?,
@@ -37,6 +38,7 @@ pub fn is_id_in_range(start: Arm64Insn, end: Arm64Insn, id: Arm64Insn) -> bool {
 }
 
 /// Used to make accessing arch-specific data less cumbersome.
+#[allow(unused)] // exists before the rewrite 
 pub trait CsArchOperandUtil {
     fn arm64(&self) -> &Arm64Operand;
 }
@@ -55,6 +57,7 @@ pub trait CsArm64OperandTypeUtil {
     fn reg(&self) -> RegId;
     fn imm(&self) -> i64;
     fn try_mem(&self) -> Option<Arm64OpMem>;
+    #[allow(unused)] // exists before the rewrite 
     fn mem(&self) -> Arm64OpMem;
 }
 
@@ -62,14 +65,14 @@ impl CsArm64OperandTypeUtil for Arm64OperandType {
     fn reg(&self) -> RegId {
         match self {
             Self::Reg(x) => *x,
-            _ => panic!("expected Reg, got {:#?}", &self),
+            _ => panic!("expected Reg, got {self:#?}"),
         }
     }
 
     fn imm(&self) -> i64 {
         match self {
             Self::Imm(x) => *x,
-            _ => panic!("expected Imm, got {:#?}", &self),
+            _ => panic!("expected Imm, got {self:#?}"),
         }
     }
 
@@ -83,7 +86,7 @@ impl CsArm64OperandTypeUtil for Arm64OperandType {
     fn mem(&self) -> Arm64OpMem {
         match self {
             Self::Mem(x) => *x,
-            _ => panic!("expected Mem, got {:#?}", &self),
+            _ => panic!("expected Mem, got {self:#?}"),
         }
     }
 }
