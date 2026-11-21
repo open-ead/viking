@@ -4,8 +4,7 @@
     "ignore": [
         "src/viking/_core.pyi",
         "src/viking/_core/**/*.pyi",
-        "progress.py",
-        "setup_common.py"
+        "progress.py"
     ],
     "reportUnusedCallResult": "none",
     "reportExplicitAny": "none"
