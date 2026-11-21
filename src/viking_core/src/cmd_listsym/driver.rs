@@ -1,47 +1,29 @@
-use anyhow::Result;
-use argh::FromArgs;
 use colored::Colorize;
-use goblin::{
-    elf::Sym,
-    elf64::sym::{STT_FILE, STT_NOTYPE, STT_OBJECT},
-};
+use goblin::elf::Sym;
+use goblin::elf64::sym::{STT_FILE, STT_NOTYPE, STT_OBJECT};
 use itertools::Itertools;
-use viking::{elf, functions};
 
-#[derive(FromArgs)]
-/// Print symbols in the output ELF.
-struct Args {
-    /// show symbols that are undefined (e.g. unimplemented functions)
-    #[argh(switch, short = 'u')]
-    show_undefined: bool,
+use crate::config::Config;
+use crate::demangle;
+use crate::elf;
+use crate::fl;
 
-    /// show data symbols
-    #[argh(switch, short = 'd')]
-    show_data: bool,
+use crate::cmd_listsym::Args;
 
-    /// show symbols that are listed as decompiled in the function CSV
-    #[argh(switch, short = 'l')]
-    show_decompiled: bool,
-
-    /// show only symbols containing the specified substring
-    #[argh(positional)]
-    filter: Option<String>,
-
-    /// version
-    #[argh(option)]
-    version: Option<String>,
-}
-
-fn main() -> Result<()> {
+/// Entry point for the listsym command
+pub fn run(config: &Config, args: Args) -> cu::Result<()> {
+    // this preserves color even when piped, not sure why we want this?
+    // but it's always here
     colored::control::set_override(true);
 
-    let args: Args = argh::from_env();
+    let version = args.version.as_deref();
 
-    let functions = functions::get_functions(args.version.as_deref())?;
-    let known_funcs = functions::make_known_function_name_map(&functions);
+    let file_list = fl::load_file_list(config, version)?;
+    let functions = file_list.info_list();
+    let known_funcs = functions.make_known_function_name_map();
 
-    let elf = elf::load_decomp_elf(args.version.as_deref())?;
-    let symtab = elf::SymbolStringTable::from_elf(&elf)?;
+    let elf = elf::load_decomp_elf(config, args.version.as_deref())?;
+    let symtab = elf.symbol_string_table()?;
 
     let filter = |sym: &Sym| {
         if sym.st_type() == STT_NOTYPE && sym.st_value != 0 {
@@ -87,7 +69,7 @@ fn main() -> Result<()> {
             }
         }
 
-        let demangled_name = functions::demangle_str(name).unwrap_or_else(|_| name.to_string());
+        let demangled_name = demangle::demangle_or_as_is(name);
 
         if let Some(filter) = &args.filter {
             if !demangled_name.contains(filter) && !name.contains(filter) {
@@ -109,7 +91,7 @@ fn main() -> Result<()> {
             "unknown".yellow().bold()
         };
 
-        println!("{} {} ({})", status, &demangled_name, name.dimmed());
+        println!("{} {} ({})", status, demangled_name, name.dimmed());
     }
 
     Ok(())
