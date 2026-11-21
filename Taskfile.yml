@@ -26,6 +26,11 @@ tasks:
   check:
     desc: Check code for issues
     cmds:
+      - task: check-main
+      - task: check-layers
+
+  check-main:
+    cmds:
       - task: py-bindgen
       - uv run --no-sync basedpyright --warnings
       - task: cargo-clippy
@@ -50,7 +55,6 @@ tasks:
       - uv run --no-sync ruff check
       - cargo fmt --check
       - uv run --no-sync scripts/check-manifest.py
-      - task: check-layers
 
   check-layers:
     desc: Check dependency rules amongst core modules
