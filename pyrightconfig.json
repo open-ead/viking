@@ -1,0 +1,11 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "ignore": [
+        "src/viking/_core.pyi",
+        "src/viking/_core/**/*.pyi",
+        "donor"
+    ],
+    "reportUnusedCallResult": "none",
+    "reportExplicitAny": "none"
+}

@@ -1,0 +1,219 @@
+version: '3'
+
+vars:
+  # Setting a different cargo target-dir for maturin builds,
+  # because maturin injects different RUSTFLAGS for its cargo invocation.
+  # Sharing the default target/ means maturin builds and raw cargo builds
+  # (such as rust-analyzer/cargo-clippy) steps on each other and causes
+  # unnecessary rebuilds. This speeds up local dev workflows at the cost
+  # of double the disk usage
+  MATURIN_DEV_TARGET: target/maturin-dev
+
+tasks:
+  # --- workflows ---
+  install:
+    desc: Install dependencies
+    cmds:
+      - task: install-deps
+      - task: py-bindgen
+
+  run:
+    desc: Run the viking CLI (pass the args to viking after -- )
+    cmds:
+      - task: install-dev
+      - uv run --no-sync viking {{.CLI_ARGS}}
+
+  check:
+    desc: Check code for issues
+    cmds:
+      - task: py-bindgen
+      - uv run --no-sync basedpyright --warnings
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features --features elf
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features --features cmd-check
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features --features cmd-decompme
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features --features cmd-listsym
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features --features python
+      - uv run --no-sync ruff format src --check
+      - uv run --no-sync ruff check
+      - cargo fmt --check
+      - uv run --no-sync scripts/check-manifest.py
+
+  fix:
+    desc: Fix code formatting
+    cmds:
+      - uv run --no-sync ruff format src
+      - uv run --no-sync ruff check --fix
+      - cargo fmt --all
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - cargo test --all-targets --features python
+
+  build-whl:
+    desc: Build the wheel
+    cmds:
+      - uv build --wheel
+
+  build-cli:
+    desc: Build the rust CLI
+    cmds:
+      - cargo build --bin viking --release --features global-allocator,cmd-all
+      - rm -f target/release/viking-*
+      - ln target/release/viking target/release/viking-check
+      - ln target/release/viking target/release/viking-decompme
+      - ln target/release/viking target/release/viking-listsym
+
+  doc:
+    desc: Generate API docs
+    cmds:
+      - rm -rf dist/docs
+      - task: build-python-docs
+      - task: build-rust-docs
+      - task: build-markdown-docs
+      - cp -RL target/doc-nightly/doc dist/docs/rust
+
+  doc-preview:
+    desc: Build and host all documentation together (without watch mode)
+    cmds:
+      - task: doc
+      - shwoop dist/docs -p 8331 --host --raw
+
+  dev-pydoc:
+    desc: Host Python doc in watch mode (please `cargo install shwoop`)
+    cmds:
+      - task: build-python-docs
+      - shwoop dist/docs -p 8333 --host -w src -- {{.TASK_EXE}} build-python-docs
+
+  dev-rsdoc:
+    desc: Host Rust doc in watch mode [requires nightly toolchain] (please `cargo install shwoop`)
+    cmds:
+      - task: build-rust-docs
+      - shwoop target/doc-nightly/doc -p 8334 --host -w src -- {{.TASK_EXE}} build-rust-docs
+
+  dev-mddoc:
+    desc: Host Markdown doc in watch mode (please `cargo install shwoop`)
+    cmds:
+      - task: build-markdown-docs
+      - shwoop dist/docs -p 8335 --host -w README.md -w docs -- {{.TASK_EXE}} build-markdown-docs
+
+  # --- helpers ---
+
+  install-deps:
+    sources:
+      - Taskfile.yml
+      - pyproject.toml
+      - uv.lock
+    cmds:
+      # --no-install-project skips building and installing viking
+      # which is slow because UV has to rebuild all the Rust side
+      # from scratch
+      - uv sync --no-install-project
+
+  py-bindgen:
+    internal: true # Just run the install task to regenerate the binding
+    desc: (Re-)generate the _core.pyi interface module
+    sources:
+      - Taskfile.yml
+      - Cargo.toml
+      - Cargo.lock
+      - src/**/*.rs
+      - src/**/Cargo.toml
+    generates:
+      - .venv/bin/viking # this ensures we rebuild if install-deps removes the dependency
+    cmds:
+      # build the extension module so we can extract the doc string out of it
+      - task: install-dev
+      - uv run --no-sync maturin generate-stubs --quiet --out src --target-dir {{.MATURIN_DEV_TARGET}}
+      - uv run --no-sync scripts/add-docs-to-stubs.py
+      - silent: true
+        cmd: |
+          # if CI = <not empty>; ensure stubs are up-to-date
+          if [ -n "$CI" ]; then
+            STUBS_DIR=src/viking/_core
+            # --porcelain also lists untracked files, so new stub modules are caught too
+            CHANGES=$(git status --porcelain -- "$STUBS_DIR" '*.pyi')
+            if [ -n "$CHANGES" ]; then
+              echo "error: generated Python stubs are out of date:" >&2
+              echo "$CHANGES" >&2
+              git --no-pager diff --stat -- "$STUBS_DIR" '*.pyi' >&2
+              echo "  run 'task install' locally to regenerate the stubs, then commit the changes" >&2
+              exit 1
+            fi
+          fi
+
+  install-dev:
+    # This builds the dev profile and installs it into the uv environment.
+    # Then we can run it with 'uv run --no-sync viking'
+    # Running 'uv run viking' directly requires buiding from scratch each time
+    sources:
+      - Taskfile.yml
+      - Cargo.toml
+      - Cargo.lock
+      - src/**/*.rs
+      - src/**/Cargo.toml
+    generates:
+      - .venv/bin/viking # this ensures we rebuild if install-deps removes the dependency
+    cmds:
+      - uv run --no-sync maturin develop --uv --target-dir {{.MATURIN_DEV_TARGET}}
+
+  build-python-docs:
+    env:
+      VIKING_CONFIG: '0' # use empty config
+    cmds:
+      - task: py-bindgen
+      - uv run --no-sync scripts/build-pdoc.py
+
+  build-rust-docs:
+    cmds:
+      # stdlib only, so CI can run it without installing the project environment
+      - python3 scripts/build-rust-doc.py
+
+  build-markdown-docs:
+    cmds:
+      - uv run --no-sync scripts/build-markdown-doc.py
+
+  build-wheels-index:
+    cmds:
+      # stdlib only, so CI can run it without installing the project environment
+      - python3 scripts/build-wheels-index.py
+
+  cargo-clippy:
+    vars:
+      CLIPPY_FLAGS: >
+        -D warnings
+        -D clippy::todo
+        -A clippy::manual_range_contains
+        -A clippy::collapsible_if
+        -A clippy::collapsible_else_if
+        -A clippy::collapsible_match
+    env:
+      RUSTDOCFLAGS: -D warnings
+    cmds:
+      - cargo clippy {{.FLAGS}} -- {{.CLIPPY_FLAGS}}
+
+  clean:
+    desc: Clean caches and outputs. Commands will run slower!
+    cmds:
+      - cargo clean
+      - rm -rf .venv dist .ruff_cache
+      - rm -rf src/**/__pycache__ src/**/*.so
+      - rm -rf src/viking/_core
+
+  publish:
+    desc: Tag the current commit and push it to trigger a new release
+    cmds:
+      - uv run --no-sync scripts/publish.py

@@ -1,0 +1,51 @@
+{#
+  Overrides pdoc's default module template (templates/default/module.html.jinja2)
+#}
+{% extends "default/module.html.jinja2" %}
+
+{#
+  Link to the project home page (README rendered by
+  scripts/build-markdown-doc.py to dist/docs/index.html), next to the
+  "<- parent module" button. On the root module there is no parent button,
+  so the link is alone above the search box. See custom.css.
+
+  Module pages are at python/<module path>.html, e.g. viking.core is at
+  python/viking/core.html, so the home page is one level up per path segment.
+#}
+{% block module_list_link %}
+    <div class="nav-top-links">
+        {{ super() }}
+        <a class="pdoc-button module-list-button" href="{{ "../" * (module.modulename.count(".") + 1) }}index.html">Home</a>
+    </div>
+{% endblock %}
+
+{#
+  Only show the "API Documentation" heading above the member list when the
+  sidebar has other sections (Contents or Submodules) to separate it from.
+  Otherwise (e.g. leaf submodules) the member list is the only thing in the
+  sidebar and the heading is just noise.
+#}
+{# Same as the default, with a class on the list to style it (see custom.css) #}
+{% block nav_submodules %}
+    {% if module.submodules %}
+        <h2>Submodules</h2>
+        <ul class="submodules">
+            {% for submodule in module.submodules if is_public(submodule) | trim %}
+                <li>{{ submodule.taken_from | link(text=submodule.name) }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}
+
+{% block nav_members %}
+    {% if module.members %}
+        {% set has_contents = module.docstring | to_markdown | to_html | attr("toc_html") %}
+        {% if has_contents or module.submodules %}
+            <h2>API Documentation</h2>
+        {% else %}
+            {# keep some space between the search box and the list, see custom.css #}
+            <div class="nav-members-spacer"></div>
+        {% endif %}
+        {{ nav_members(module.members.values()) }}
+    {% endif %}
+{% endblock %}
