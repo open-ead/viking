@@ -1,0 +1,36 @@
+use std::borrow::Cow;
+
+use crate::python::pre::*;
+
+/// Demangle a C++ symbol.
+#[inline(always)]
+pub fn demangle_str(name: &str) -> cu::Result<String> {
+    if !name.starts_with("_Z") {
+        cu::bail!("not an external mangled name");
+    }
+
+    let symbol = cpp_demangle::Symbol::new(name)?;
+    let options = cpp_demangle::DemangleOptions::new();
+    Ok(symbol.demangle(&options)?)
+}
+
+/// Try to demangle the name, or return the name unchanged if it cannot be demangled
+#[pyfunction]
+#[inline(always)]
+pub fn demangle_or_as_is(name: &str) -> Cow<'_, str> {
+    match demangle_str(name) {
+        Ok(x) => x.into(),
+        Err(_) => name.into(),
+    }
+}
+
+/// Check if the function name contains `query` either as-is or when demangled.
+///
+/// Returns `true` if:
+///
+/// - `function_name` contains `query`, or
+/// - `demangle(function_name)` contains `query`
+#[pyfunction]
+pub fn raw_or_demangled_contains(function_name: &str, query: &str) -> bool {
+    function_name.contains(query) || demangle_str(function_name).is_ok_and(|x| x.contains(query))
+}

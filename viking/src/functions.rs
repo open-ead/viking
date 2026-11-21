@@ -243,16 +243,6 @@ pub fn make_known_function_name_map(functions: &[Info]) -> FxHashMap<&str, &Info
     known_functions
 }
 
-/// Demangle a C++ symbol.
-pub fn demangle_str(name: &str) -> Result<String> {
-    if !name.starts_with("_Z") {
-        bail!("not an external mangled name");
-    }
-
-    let symbol = cpp_demangle::Symbol::new(name)?;
-    let options = cpp_demangle::DemangleOptions::new();
-    Ok(symbol.demangle(&options)?)
-}
 
 pub fn fuzzy_search<'a>(functions: &[&'a Info], name: &str) -> Vec<&'a Info> {
     let exact_match = functions
