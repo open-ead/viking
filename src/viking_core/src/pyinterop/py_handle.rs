@@ -7,13 +7,14 @@
 ///
 /// The downside is that borrowing rules are not checked when
 /// mutable references are taken
+#[allow(unused)]
 macro_rules! make_handle_class {
     (
         $(#[doc = $doc:literal])*
         #[handle($inner_type:ident, module = $module:literal)]
         $($rest:tt)*
 ) => {
-        $crate::python::make_handle_class!(__struct (
+        $crate::pyinterop::make_handle_class!(__struct (
             $(#[doc = $doc])*
             #[pyclass(from_py_object, module = $module)]
             #[derive(Clone)]
@@ -22,24 +23,24 @@ macro_rules! make_handle_class {
     (__struct ($($attr:tt)*) [$inner_type:ident] struct $handle_type:ident ; ) => {
         $($attr)*
         struct $handle_type(usize);
-        $crate::python::make_handle_class!(__impl [$inner_type, $handle_type]);
+        $crate::pyinterop::make_handle_class!(__impl [$inner_type, $handle_type]);
     };
     (__struct ($($attr:tt)*) [$inner_type:ident] pub struct $handle_type:ident ; ) => {
         $($attr)*
         pub struct $handle_type(usize);
-        $crate::python::make_handle_class!(__impl [$inner_type, $handle_type]);
+        $crate::pyinterop::make_handle_class!(__impl [$inner_type, $handle_type]);
     };
     (__struct ($($attr:tt)*) [$inner_type:ident] pub mut struct $handle_type:ident ; ) => {
         $($attr)*
         pub struct $handle_type(usize);
-        $crate::python::make_handle_class!(__impl [$inner_type, $handle_type]);
-        $crate::python::make_handle_class!(__impl_mut [$inner_type, $handle_type]);
+        $crate::pyinterop::make_handle_class!(__impl [$inner_type, $handle_type]);
+        $crate::pyinterop::make_handle_class!(__impl_mut [$inner_type, $handle_type]);
     };
     (__struct ($($attr:tt)*) [$inner_type:ident] mut struct $handle_type:ident ; ) => {
         $($attr)*
         struct $handle_type(usize);
-        $crate::python::make_handle_class!(__impl [$inner_type, $handle_type]);
-        $crate::python::make_handle_class!(__impl_mut [$inner_type, $handle_type]);
+        $crate::pyinterop::make_handle_class!(__impl [$inner_type, $handle_type]);
+        $crate::pyinterop::make_handle_class!(__impl_mut [$inner_type, $handle_type]);
     };
     (__impl [$inner_type:ident, $handle_type:ident]) => {
         impl ::std::ops::Deref for $handle_type {
@@ -87,4 +88,5 @@ macro_rules! make_handle_class {
         }
     };
 }
+#[allow(unused)]
 pub(crate) use make_handle_class;

@@ -14,6 +14,7 @@ pub fn run_upload(
     args: &Args,
     mut source: ScratchSource,
 ) -> cu::Result<FinalScratchUrl> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L322
     let override_compile_flags = config.override_compile_flags;
     let client = Client::new();
 

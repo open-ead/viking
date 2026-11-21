@@ -1,5 +1,7 @@
 use cu::pre::*;
 
+// REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/list_symbols.rs#L13
+
 /// Print symbols in the output ELF.
 #[derive(Debug, clap::Parser)]
 #[clap(bin_name = "listsym")]

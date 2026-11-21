@@ -13,6 +13,8 @@ use crate::fl;
 use crate::cmd_check::capstone_util::*;
 use crate::cmd_check::{Mismatch, MismatchCause, ReferenceDiff};
 
+// REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs
+
 pub struct FunctionChecker<'a, 'orig_elf, 'decomp_elf> {
     config: ConfigCheckMismatch,
 

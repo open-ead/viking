@@ -53,7 +53,19 @@ As a rule of thumb, when deciding whether something should be in Rust or Python:
   - The functionality is simple and easier to implement in Python (such as spawning a tool).
   - The Rust side does NOT depend on it.
 
-### Python-Rust call direction
+### Python-Rust interop
+
+#### Interop modules
+
+There are 3 modules responsible for Python-Rust interop: `pyinterop`, `python`, and `pyapi`,
+each serves a different role in the dependency graph:
+- `pyinterop`: Low-level interop utils that `python` and `pyapi` depends on, does NOT depend on other modules.
+- `python`: Core interop utils that can depend on other core modules such as `config`.
+  Handles Rust-to-Python calls. Other CLI modules may depend on it (such as `cmd_check`)
+- `pyapi`: Highest-level APIs exposed to Python for Python-to-Rust calls. No other modules
+  may depend on `pyapi`.
+
+#### Calling Python from Rust
 
 Only Python code calls Rust directly. Rust never calls into Python in the same process.
 This way, Python adds no overhead to paths that don't need it, even when other
@@ -71,7 +83,7 @@ To add a new Python call:
   so your editor picks up the new command).
 - Handle the command in [`run_json_command`](../src/viking/core.py).
 
-### "Global" state in Rust
+#### "Global" state in Rust
 
 The Rust side should not have process-wide singletons, to support Python's upcoming
 multi-interpreter feature, where a single process may host multiple Python interpreters.
@@ -85,3 +97,27 @@ See [`core.py`](../src/viking/core.py).
 
 This global state should not be exposed in the public Python API. Instead, add a wrapper
 that calls the `_core` API internally and passes in `core_state`.
+
+### Core modules dependency
+
+The Rust crate produces an interal dependency graph amongst its modules. For example,
+`config` handles loading the repo's config, and `fl` loads the file list based on the
+path specified in the config. Therefore `fl` depends on `config`.
+To keep this dependency relationship clean and maintainable in the future,
+`config` should not depend on `fl`.
+
+This one-way dependency rule is enforced for every top-level module defined in `lib.rs`.
+The current dependency graph is defined in the [`Layerfile`](../src/viking_core/Layerfile.toml).
+
+To check the dependency, install `layered-crate`:
+
+```shell
+# install from source
+cargo install layered-crate
+# install from pre-built binaries on GitHub using cargo-binstall
+cargo binstall layered-crate
+```
+
+Then run `task check-layers` (`task check` will also include this check once `layered-crate` is installed).
+
+

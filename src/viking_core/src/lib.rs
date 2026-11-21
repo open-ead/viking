@@ -38,6 +38,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[cfg(feature = "python")]
 mod pyapi;
 
+// === cli stuff =============================
+
 /// CLI entry points in Rust
 pub mod cli;
 
@@ -53,21 +55,29 @@ mod cmd_decompme;
 #[cfg(feature = "cmd-listsym")]
 mod cmd_listsym;
 
+// === core stuff ===========================
+
 #[cfg(feature = "elf")]
 pub mod elf;
 
 pub mod fl;
 
-/// C++ symbol demangle utils
-pub mod demangle;
+// === low-level stuff ======================
 
-/// Terminal UI utils
-pub mod ui;
+pub mod python;
 
 /// Configuration file
 pub mod config;
 
-pub mod python;
+/// Terminal UI utils
+pub mod ui;
+
+/// C++ symbol demangle utils
+pub mod demangle;
+
+/// Low-level Python binding and interop for the extension module
+#[doc(hidden)]
+pub mod pyinterop;
 
 // silence unused dependency warning
 use viking_proc_macro as _;

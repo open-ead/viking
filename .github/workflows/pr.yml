@@ -13,6 +13,7 @@ jobs:
           mono-dev: false
           rust: stable
           python: uv
+          tool-cargo-binstall: layered-crate
       - run: task install
       - run: task check
       - run: task test

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use cu::pre::*;
 
 use crate::config;
-use crate::python::pre::*;
+use crate::pyinterop::pre::*;
 
 /// The command to execute the Python interpreter that has viking installed
 ///

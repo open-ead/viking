@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::Write;
 
 use cu::pre::*;
@@ -6,6 +7,10 @@ use crate::fl;
 
 // The YAML serialization is custom so we can layout the exact format,
 // like spacing and serializing numbers in hex
+//
+// The format mimics what SMO already does:
+// - https://github.com/MonsterDruide1/OdysseyDecomp/blob/master/data/file_list.yml
+// - https://github.com/LynxDev2/nx-decomp-tools/blob/file-list-tools/viking/src/functions.rs
 
 impl fl::Object {
     /// Format into YAML file list writer
@@ -104,4 +109,31 @@ impl<'de> Deserialize<'de> for fl::AddressLabel {
 
         deserializer.deserialize_any(LabelVisitor)
     }
+}
+
+pub fn quote_yaml_string_if_needed(s: &str) -> Cow<'_, str> {
+    if is_safe_yaml_string(s) {
+        return s.into();
+    }
+    format!("\'{}\'", s.replace('\'', "''")).into()
+}
+
+/// If the string is parsed back as the same string when written as a plain scalar,
+/// including in flow context
+fn is_safe_yaml_string(s: &str) -> bool {
+    let mut chars = s.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+    if !chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '$' | '/' | '-')) {
+        return false;
+    }
+    // words that could be parsed as non-string
+    !matches!(
+        s.to_ascii_lowercase().as_str(),
+        "null" | "true" | "false" | "yes" | "no" | "on" | "off" | "y" | "n"
+    )
 }

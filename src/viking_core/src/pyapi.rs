@@ -1,7 +1,9 @@
 use cu::pre::*;
 use pyo3::prelude::*;
 
+use crate::pyinterop;
 use crate::python;
+use crate::python::{RustState, State};
 
 /// The low-level Python-Rust bindings
 ///
@@ -21,16 +23,16 @@ mod _core {
 
     // ======= module =======
     #[pymodule_export]
-    use python::State;
+    use State;
 
     /// Initialize the Rust extension module
     #[pyfunction]
     pub fn init_core_state(sys_executable: &str, sys_argv0: &str) -> PyResult<State> {
         ui::init_logger();
-        python::into_pyresult(python::set_python_program_args(sys_executable, [sys_argv0]))?;
+        pyinterop::into_pyresult(python::set_python_program_args(sys_executable, [sys_argv0]))?;
 
-        let config = python::into_pyresult(crate::config::load_config())?;
-        Ok(State::new(python::RustState { config }))
+        let config = pyinterop::into_pyresult(crate::config::load_config())?;
+        Ok(State::new(RustState { config }))
     }
 
     /// Finalize the Rust extension module
@@ -45,7 +47,7 @@ mod _core {
 
     #[pyfunction]
     pub fn parse_json_command(s: &str) -> PyResult<PyCmd> {
-        python::into_pyresult(json::parse::<PyCmd>(s))
+        pyinterop::into_pyresult(json::parse::<PyCmd>(s))
     }
 
     // ======= cli =======
@@ -57,7 +59,7 @@ mod _core {
         #[pyfunction]
         fn run(state: State, args: Vec<String>) -> PyResult<u32> {
             let result = crate::cli::check_config_argv(&state.config, args);
-            python::into_pyresult(result)
+            pyinterop::into_pyresult(result)
         }
     }
 
@@ -68,7 +70,7 @@ mod _core {
         #[pyfunction]
         fn run(state: State, args: Vec<String>) -> PyResult<u32> {
             let result = crate::cli::decompme_config_argv(&state.config, args);
-            python::into_pyresult(result)
+            pyinterop::into_pyresult(result)
         }
     }
 
@@ -79,7 +81,7 @@ mod _core {
         #[pyfunction]
         fn run(state: State, args: Vec<String>) -> PyResult<u32> {
             let result = crate::cli::listsym_config_argv(&state.config, args);
-            python::into_pyresult(result)
+            pyinterop::into_pyresult(result)
         }
     }
 
@@ -91,19 +93,19 @@ mod _core {
 
         #[pyfunction]
         fn load_file_list(state: State, version: Option<&str>) -> PyResult<FileList> {
-            python::into_pyresult(crate::fl::load_file_list(&state.config, version))
+            pyinterop::into_pyresult(crate::fl::load_file_list(&state.config, version))
         }
         #[pyfunction]
         fn load_file_list_at(state: State, path: &str) -> PyResult<FileList> {
-            python::into_pyresult(crate::fl::load_file_list_at(&state.config, path))
+            pyinterop::into_pyresult(crate::fl::load_file_list_at(&state.config, path))
         }
         #[pyfunction]
         fn load_file_list_csv_at(state: State, path: &str) -> PyResult<FileList> {
-            python::into_pyresult(crate::fl::load_file_list_csv_at(&state.config, path))
+            pyinterop::into_pyresult(crate::fl::load_file_list_csv_at(&state.config, path))
         }
         #[pyfunction]
         fn load_file_list_yml_at(state: State, path: &str) -> PyResult<FileList> {
-            python::into_pyresult(crate::fl::load_file_list_yml_at(&state.config, path))
+            pyinterop::into_pyresult(crate::fl::load_file_list_yml_at(&state.config, path))
         }
         #[pyfunction]
         fn write_file_list_csv(
@@ -112,11 +114,11 @@ mod _core {
             version: Option<&str>,
         ) -> PyResult<()> {
             file_list.reload_info_list();
-            python::into_pyresult(cu::check!(
+            pyinterop::into_pyresult(cu::check!(
                 file_list.validate(0),
                 "failed to validate file list before write (write_file_list_csv called from Python)"
             ))?;
-            python::into_pyresult(crate::fl::write_file_list_csv(
+            pyinterop::into_pyresult(crate::fl::write_file_list_csv(
                 &state.config,
                 file_list.info_list(),
                 version,
@@ -125,11 +127,11 @@ mod _core {
         #[pyfunction]
         fn write_file_list_csv_at(file_list: &mut FileList, path: &str) -> PyResult<()> {
             file_list.reload_info_list();
-            python::into_pyresult(cu::check!(
+            pyinterop::into_pyresult(cu::check!(
                 file_list.validate(0),
                 "failed to validate file list before write (write_file_list_csv_at called from Python)"
             ))?;
-            python::into_pyresult(crate::fl::write_file_list_csv_at(
+            pyinterop::into_pyresult(crate::fl::write_file_list_csv_at(
                 path,
                 file_list.info_list(),
             ))
@@ -141,11 +143,11 @@ mod _core {
             version: Option<&str>,
         ) -> PyResult<()> {
             file_list.reload_info_list();
-            python::into_pyresult(cu::check!(
+            pyinterop::into_pyresult(cu::check!(
                 file_list.validate(0),
                 "failed to validate file list before write (write_file_list_yml called from Python)"
             ))?;
-            python::into_pyresult(crate::fl::write_file_list_yml(
+            pyinterop::into_pyresult(crate::fl::write_file_list_yml(
                 &state.config,
                 file_list,
                 version,
@@ -154,11 +156,11 @@ mod _core {
         #[pyfunction]
         fn write_file_list_yml_at(file_list: &mut FileList, path: &str) -> PyResult<()> {
             file_list.reload_info_list();
-            python::into_pyresult(cu::check!(
+            pyinterop::into_pyresult(cu::check!(
                 file_list.validate(0),
                 "failed to validate file list before write (write_file_list_yml_at called from Python)"
             ))?;
-            python::into_pyresult(crate::fl::write_file_list_yml_at(path, file_list))
+            pyinterop::into_pyresult(crate::fl::write_file_list_yml_at(path, file_list))
         }
         // todo - datasymbols
 
@@ -170,18 +172,18 @@ mod _core {
         }
         #[pyfunction]
         fn parse_offset(hex_value: &str) -> PyResult<u32> {
-            python::into_pyresult(crate::fl::parse_offset(hex_value))
+            pyinterop::into_pyresult(crate::fl::parse_offset(hex_value))
         }
         #[pyfunction]
         fn parse_abs_address_as_offset(state: State, hex_value: &str) -> PyResult<u32> {
-            python::into_pyresult(crate::fl::parse_abs_address_as_offset(
+            pyinterop::into_pyresult(crate::fl::parse_abs_address_as_offset(
                 &state.config,
                 hex_value,
             ))
         }
         #[pyfunction]
         fn parse_abs_address(state: State, hex_value: &str) -> PyResult<u64> {
-            python::into_pyresult(crate::fl::parse_abs_address(&state.config, hex_value))
+            pyinterop::into_pyresult(crate::fl::parse_abs_address(&state.config, hex_value))
         }
     }
 
@@ -199,7 +201,7 @@ mod _core {
 
         #[pyfunction]
         fn confirm(prompt: &str, default_value: bool, help: Option<&str>) -> PyResult<()> {
-            python::into_pyresult(crate::ui::confirm(prompt, default_value, help))
+            pyinterop::into_pyresult(crate::ui::confirm(prompt, default_value, help))
         }
     }
 
@@ -213,7 +215,7 @@ mod _core {
 
     #[pyfunction]
     pub fn find_tool(state: State, tool: &str) -> PyResult<PathBuf> {
-        python::into_pyresult(state.config.repo.find_tool(tool))
+        pyinterop::into_pyresult(state.config.repo.find_tool(tool))
     }
 
     #[pymodule_export]

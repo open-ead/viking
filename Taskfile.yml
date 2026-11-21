@@ -50,6 +50,20 @@ tasks:
       - uv run --no-sync ruff check
       - cargo fmt --check
       - uv run --no-sync scripts/check-manifest.py
+      - task: check-layers
+
+  check-layers:
+    desc: Check dependency rules amongst core modules
+    dir: src/viking_core
+    cmds:
+      - silent: true
+        cmd: |
+          # skip locally if layered-crate is not installed; always run in CI
+          if [ -z "$CI" ] && ! command -v layered-crate > /dev/null 2>&1; then
+            echo "WARNING: layered-crate is not installed, skipping layer check (please \`cargo install layered-crate\`)" >&2
+            exit 0
+          fi
+          layered-crate -- check --lib --no-default-features --features python
 
   fix:
     desc: Fix code formatting
