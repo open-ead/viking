@@ -1,0 +1,20 @@
+name: release
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: Pistonight/mono-dev/actions/release@main
+        with:
+          artifacts-workflow: build.yml
+          artifacts-path: release
+          pack: viking-*
+          files: release/wheel-*/*.whl
+
+
