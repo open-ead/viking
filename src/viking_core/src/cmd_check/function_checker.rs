@@ -1,4 +1,3 @@
-use anyhow::{ensure, Result};
 use capstone as cs;
 use cs::arch::arm64::{Arm64Insn, Arm64Operand, Arm64OperandType};
 use lazy_init::Lazy;
@@ -6,177 +5,17 @@ use rustc_hash::FxHashMap;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::iter::zip;
-use std::path::{Path, PathBuf};
 
-use crate::{capstone_utils::*, elf, functions, repo, ui};
+use crate::config::{Config, ConfigCheckMismatch};
+use crate::elf;
+use crate::fl;
 
-struct DataSymbol {
-    /// Address of the symbol in the original executable.
-    pub addr: u64,
-    /// Name of the symbol in our source code.
-    pub name: String,
-    /// Size of the symbol in our source code (according to ELF info).
-    pub size: u64,
-}
+use crate::cmd_check::capstone_util::*;
+use crate::cmd_check::{Mismatch, MismatchCause, ReferenceDiff};
 
-/// Keeps track of known data symbols so that data loads can be validated.
-#[derive(Default)]
-struct KnownDataSymbolMap {
-    /// Symbols. Must be sorted by address.
-    symbols: Vec<DataSymbol>,
-}
+pub struct FunctionChecker<'a, 'orig_elf, 'decomp_elf> {
+    config: ConfigCheckMismatch,
 
-impl KnownDataSymbolMap {
-    fn new() -> Self {
-        Default::default()
-    }
-
-    fn load(&mut self, csv_path: &Path, decomp_symtab: &elf::SymbolTableByName) -> Result<()> {
-        let mut reader = csv::ReaderBuilder::new()
-            .has_headers(true)
-            .quoting(false)
-            .from_path(csv_path)?;
-        for (line, maybe_record) in reader.records().enumerate() {
-            let record = &maybe_record?;
-            ensure!(
-                record.len() == 2,
-                "invalid number of fields on line {}",
-                line
-            );
-
-            let addr = functions::parse_address(&record[0])?;
-            let name = &record[1];
-
-            let symbol = decomp_symtab.get(name);
-            // Ignore missing symbols.
-            if symbol.is_none() {
-                continue;
-            }
-            let symbol = symbol.unwrap();
-
-            self.symbols.push(DataSymbol {
-                addr,
-                name: name.to_string(),
-                size: symbol.st_size,
-            });
-        }
-        self.symbols.sort_by_key(|sym| sym.addr);
-        Ok(())
-    }
-
-    /// If addr is part of a known data symbol, this function returns the corresponding symbol.
-    fn get_symbol(&self, addr: u64) -> Option<&DataSymbol> {
-        // Perform a binary search since `symbols` is sorted.
-        let mut a: isize = 0;
-        let mut b: isize = self.symbols.len() as isize - 1;
-        while a <= b {
-            let m = a + (b - a) / 2;
-
-            let mid_symbol = &self.symbols[m as usize];
-            let mid_addr_begin = mid_symbol.addr;
-            let mid_addr_end = mid_addr_begin + mid_symbol.size;
-
-            if mid_addr_begin <= addr && addr < mid_addr_end {
-                return Some(mid_symbol);
-            }
-            if addr <= mid_addr_begin {
-                b = m - 1;
-            } else if addr >= mid_addr_end {
-                a = m + 1;
-            } else {
-                break;
-            }
-        }
-        None
-    }
-}
-
-fn get_data_symbol_csv_path(version: Option<&str>) -> Result<PathBuf> {
-    Ok(repo::get_data_path(version)?.join("data_symbols.csv"))
-}
-
-#[derive(Debug)]
-pub struct ReferenceDiff {
-    pub referenced_symbol: u64,
-    pub expected_ref_in_decomp: Option<u64>,
-    pub actual_ref_in_decomp: u64,
-
-    pub expected_symbol_name: String,
-    pub actual_symbol_name: String,
-}
-
-impl std::fmt::Display for ReferenceDiff {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f,
-            "incorrect reference; expected to see {ref} {ref_name}",
-            ref=ui::format_address(self.referenced_symbol),
-            ref_name=ui::format_symbol_name(&self.expected_symbol_name),
-        )?;
-        writeln!(
-            f,
-            "--> decomp source code is referencing {actual} {actual_name}",
-            actual = ui::format_address(self.actual_ref_in_decomp),
-            actual_name = ui::format_symbol_name(&self.actual_symbol_name),
-        )?;
-        if let Some(expected) = self.expected_ref_in_decomp {
-            writeln!(
-                f,
-                "--> expected to see {expected} to match original code",
-                expected = ui::format_address(expected),
-            )?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub enum MismatchCause {
-    FunctionSize,
-    Register,
-    Mnemonic,
-    BranchTarget,
-    FunctionCall(ReferenceDiff),
-    DataReference(ReferenceDiff),
-    Immediate,
-    Unknown,
-    InternalError(String),
-}
-
-impl std::fmt::Display for MismatchCause {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            Self::FunctionSize => write!(f, "wrong function size"),
-            Self::Register => write!(f, "wrong register"),
-            Self::Mnemonic => write!(f, "wrong mnemonic"),
-            Self::BranchTarget => write!(f, "wrong branch target"),
-            Self::FunctionCall(diff) => write!(f, "wrong function call\n{diff}"),
-            Self::DataReference(diff) => write!(f, "wrong data reference\n{diff}"),
-            Self::Immediate => write!(f, "wrong immediate"),
-            Self::Unknown => write!(f, "unknown reason"),
-            Self::InternalError(msg) => write!(f, "internal error: {}", msg),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Mismatch {
-    pub addr_orig: u64,
-    pub addr_decomp: u64,
-    pub cause: MismatchCause,
-}
-
-impl std::fmt::Display for Mismatch {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "mismatch at {}: {}",
-            ui::format_address(self.addr_orig),
-            self.cause,
-        )
-    }
-}
-
-pub struct FunctionChecker<'a, 'functions, 'orig_elf, 'decomp_elf> {
     pub decomp_elf: &'decomp_elf elf::OwnedElf,
     pub decomp_symtab: &'a elf::SymbolTableByName<'decomp_elf>,
     decomp_glob_data_table: elf::GlobDataTable,
@@ -185,33 +24,34 @@ pub struct FunctionChecker<'a, 'functions, 'orig_elf, 'decomp_elf> {
     // Optional, only initialized when a mismatch is detected.
     decomp_addr_to_name_map: Lazy<elf::AddrToNameMap<'decomp_elf>>,
 
-    known_data_symbols: KnownDataSymbolMap,
-    known_functions: FxHashMap<u64, &'functions functions::Info>,
+    known_data_symbols: fl::DataSymbolMap,
+    known_functions: FxHashMap<u32, fl::Info>,
 
     pub orig_elf: &'orig_elf elf::OwnedElf,
     orig_got_section: Option<&'orig_elf goblin::elf::SectionHeader>,
 }
 
-impl<'a, 'functions, 'orig_elf, 'decomp_elf>
-    FunctionChecker<'a, 'functions, 'orig_elf, 'decomp_elf>
-{
+impl<'a, 'orig_elf, 'decomp_elf> FunctionChecker<'a, 'orig_elf, 'decomp_elf> {
+    #[cu::context("failed to construct FunctionChecker")]
     pub fn new(
+        config: &Config,
         orig_elf: &'orig_elf elf::OwnedElf,
         decomp_elf: &'decomp_elf elf::OwnedElf,
         decomp_symtab: &'a elf::SymbolTableByName<'decomp_elf>,
         decomp_glob_data_table: elf::GlobDataTable,
-        functions: &'functions [functions::Info],
+        functions: &fl::InfoList,
         version: Option<&str>,
-    ) -> Result<Self> {
-        let mut known_data_symbols = KnownDataSymbolMap::new();
-        known_data_symbols.load(get_data_symbol_csv_path(version)?.as_path(), decomp_symtab)?;
+    ) -> cu::Result<Self> {
+        let known_data_symbols =
+            decomp_symtab.hydrate_data_symbols(&fl::load_data_symbols(config, version)?);
 
-        let known_functions = functions::make_known_function_map(functions);
+        let known_functions = functions.make_known_function_map();
 
-        let decomp_plt_section = elf::find_section(decomp_elf, ".plt").ok();
-        let orig_got_section = elf::find_section(orig_elf, ".got").ok();
+        let decomp_plt_section = decomp_elf.find_section(".plt").ok();
+        let orig_got_section = orig_elf.find_section(".got").ok();
 
         Ok(FunctionChecker {
+            config: config.check_mismatch.clone(),
             decomp_elf,
             decomp_symtab,
             decomp_glob_data_table,
@@ -231,7 +71,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
         cs: &mut cs::Capstone,
         orig_fn: &elf::Function,
         decomp_fn: &elf::Function,
-    ) -> Result<Option<Mismatch>> {
+    ) -> cu::Result<Option<Mismatch>> {
         // Keep track of registers that are used with ADRP so that we can check global data
         // references even when data is not placed at the same addresses
         // as in the original executable.
@@ -272,7 +112,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
             let ops = map_pair(&arch_detail, |a| a.arm64().unwrap().operands_ref());
 
             if ids.0 != ids.1 {
-                return Self::make_mismatch(&i1, &i2, MismatchCause::Mnemonic);
+                return make_mismatch(&i1, &i2, MismatchCause::Mnemonic);
             }
 
             let id = ids.0;
@@ -287,12 +127,12 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                     // Treat it as a function call.
                     if !orig_fn.get_addr_range().contains(&target.0) {
                         if let Some(mismatch_cause) = self.check_function_call(target.0, target.1) {
-                            return Self::make_mismatch(&i1, &i2, mismatch_cause);
+                            return make_mismatch(&i1, &i2, mismatch_cause);
                         }
                     } else {
                         // Otherwise, it's a simple branch, and both targets must match.
                         if i1.bytes() != i2.bytes() {
-                            return Self::make_mismatch(&i1, &i2, MismatchCause::BranchTarget);
+                            return make_mismatch(&i1, &i2, MismatchCause::BranchTarget);
                         }
                     }
                 }
@@ -304,7 +144,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                         map_pair(&ops, |ops| Arm64Operand::from(&ops[1]).op_type.imm() as u64);
 
                     if reg.0 != reg.1 {
-                        return Self::make_mismatch(&i1, &i2, MismatchCause::Register);
+                        return make_mismatch(&i1, &i2, MismatchCause::Register);
                     }
 
                     state.gprs1.insert(reg.0, imm.0);
@@ -326,7 +166,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                                 map_pair(&ops, |ops| Arm64Operand::from(&ops[2]).op_type.imm());
 
                             if dest_reg.0 != dest_reg.1 || reg.0 != reg.1 {
-                                return Self::make_mismatch(&i1, &i2, MismatchCause::Register);
+                                return make_mismatch(&i1, &i2, MismatchCause::Register);
                             }
 
                             // Is this an ADRP pair we can check?
@@ -337,7 +177,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                                 if let Some(mismatch_cause) =
                                     self.check_data_symbol(orig_addr, decomp_addr)
                                 {
-                                    return Self::make_mismatch(&i1, &i2, mismatch_cause);
+                                    return make_mismatch(&i1, &i2, mismatch_cause);
                                 }
 
                                 // If the data symbol reference matches, allow the instructions to be different.
@@ -347,7 +187,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                     }
 
                     if !diff_ok && i1.bytes() != i2.bytes() {
-                        return Self::make_mismatch(&i1, &i2, MismatchCause::Unknown);
+                        return make_mismatch(&i1, &i2, MismatchCause::Unknown);
                     }
 
                     state.forget_modified_registers(&detail.0);
@@ -366,10 +206,10 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                         let op2 = Arm64Operand::from(op2);
                         if let Some(mem1) = op1.op_type.try_mem() {
                             if let Some(mem2) = op2.op_type.try_mem() {
-                                ensure!(
+                                cu::ensure!(
                                     mem.0.is_none() && mem.1.is_none(),
                                     "found more than one OpMem"
-                                );
+                                )?;
                                 mem.0 = Some(mem1);
                                 mem.1 = Some(mem2);
                                 continue;
@@ -377,16 +217,16 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                         }
 
                         if op1 != op2 {
-                            return Self::make_mismatch(&i1, &i2, MismatchCause::Unknown);
+                            return make_mismatch(&i1, &i2, MismatchCause::Unknown);
                         }
                     }
 
-                    ensure!(mem.0.is_some() && mem.1.is_some(), "didn't find an OpMem");
+                    cu::ensure!(mem.0.is_some() && mem.1.is_some(), "didn't find an OpMem")?;
 
                     let mem = (mem.0.unwrap(), mem.1.unwrap());
 
                     if mem.0.base() != mem.1.base() {
-                        return Self::make_mismatch(&i1, &i2, MismatchCause::Register);
+                        return make_mismatch(&i1, &i2, MismatchCause::Register);
                     }
 
                     let reg = mem.0.base();
@@ -400,7 +240,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                         if let Some(mismatch_cause) =
                             self.check_data_symbol_ptr(orig_addr_ptr, decomp_addr_ptr)
                         {
-                            return Self::make_mismatch(&i1, &i2, mismatch_cause);
+                            return make_mismatch(&i1, &i2, mismatch_cause);
                         }
 
                         // If the data symbol reference matches, allow the instructions to be different.
@@ -408,7 +248,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                     }
 
                     if !diff_ok && i1.bytes() != i2.bytes() {
-                        return Self::make_mismatch(&i1, &i2, MismatchCause::Unknown);
+                        return make_mismatch(&i1, &i2, MismatchCause::Unknown);
                     }
 
                     state.forget_modified_registers(&detail.0);
@@ -417,7 +257,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
                 // Anything else.
                 _ => {
                     if i1.bytes() != i2.bytes() {
-                        return Self::make_mismatch(&i1, &i2, MismatchCause::Unknown);
+                        return make_mismatch(&i1, &i2, MismatchCause::Unknown);
                     }
 
                     state.forget_modified_registers(&detail.0);
@@ -430,10 +270,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
 
     /// Returns None on success and a MismatchCause on failure.
     fn check_function_call(&self, orig_addr: u64, decomp_addr: u64) -> Option<MismatchCause> {
-        if !repo::get_config()
-            .check_unimplemented_references
-            .unwrap_or(true)
-        {
+        if !self.config.check_unimplemented_references {
             // 0x10 = size of one plt entry
             if elf::is_in_section(self.decomp_plt_section?, decomp_addr, 0x10) {
                 // we are deliberately ignoring PLT references, so do not check their target
@@ -441,14 +278,14 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
             }
         }
 
-        let Some(info) = self.known_functions.get(&orig_addr) else {
+        let Some(info) = self.known_functions.get(&(orig_addr as u32)) else {
             // should not happen, but loudly complain (and only fail single function) if it still happens
             return Some(MismatchCause::InternalError(format!(
                 "failed to resolve orig function at address {:x}",
                 orig_addr
             )));
         };
-        let name = info.name.as_str();
+        let name = info.name();
         if name.is_empty() {
             // called some function that is not named in the binary or function list
             let actual_symbol_name = self.translate_decomp_addr_to_name(decomp_addr);
@@ -464,9 +301,18 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
             .decomp_symtab
             .get(name)
             .map(|sym| sym.st_value)
-            .or_else(|| elf::plt_name_to_addr(self.decomp_elf, name))
+            .or_else(|| self.decomp_elf.plt_name_to_addr(name))
         else {
             let actual_symbol_name = self.translate_decomp_addr_to_name(decomp_addr);
+
+            if let Some(call_sym) = actual_symbol_name {
+                for label in info.label.names().iter().skip(1) {
+                    if call_sym == label {
+                        return None;
+                    }
+                }
+            }
+
             return Some(MismatchCause::FunctionCall(ReferenceDiff {
                 referenced_symbol: orig_addr,
                 expected_ref_in_decomp: None,
@@ -495,7 +341,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
         &self,
         orig_addr: u64,
         decomp_addr: u64,
-        symbol: &DataSymbol,
+        symbol: &fl::DataSymbol,
     ) -> Option<MismatchCause> {
         let decomp_symbol = self.decomp_symtab.get(symbol.name.as_str())?;
         let expected = decomp_symbol.st_value;
@@ -517,7 +363,7 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
 
     /// Returns None on success and a MismatchCause on failure.
     fn check_data_symbol(&self, orig_addr: u64, decomp_addr: u64) -> Option<MismatchCause> {
-        let symbol = self.known_data_symbols.get_symbol(orig_addr)?;
+        let symbol = self.known_data_symbols.get(orig_addr)?;
         self.check_data_symbol_ex(orig_addr, decomp_addr, symbol)
     }
 
@@ -534,38 +380,39 @@ impl<'a, 'functions, 'orig_elf, 'decomp_elf>
         }
 
         let orig_addr = u64::from_le_bytes(
-            elf::get_elf_bytes(self.orig_elf, orig_addr_ptr, 8)
+            self.orig_elf
+                .get_elf_bytes(orig_addr_ptr, 8)
                 .ok()?
                 .try_into()
                 .ok()?,
         );
 
-        let data_symbol = self.known_data_symbols.get_symbol(orig_addr)?;
+        let data_symbol = self.known_data_symbols.get(orig_addr)?;
         let decomp_addr = *self.decomp_glob_data_table.get(&decomp_addr_ptr)?;
         self.check_data_symbol_ex(orig_addr, decomp_addr, data_symbol)
-    }
-
-    fn make_mismatch(
-        i1: &cs::Insn,
-        i2: &cs::Insn,
-        cause: MismatchCause,
-    ) -> Result<Option<Mismatch>> {
-        Ok(Some(Mismatch {
-            addr_orig: i1.address(),
-            addr_decomp: i2.address(),
-            cause,
-        }))
     }
 
     #[cold]
     #[inline(never)]
     fn translate_decomp_addr_to_name(&self, decomp_addr: u64) -> Option<&'decomp_elf str> {
         let map = self.decomp_addr_to_name_map.get_or_create(|| {
-            let map = elf::make_addr_to_name_map(self.decomp_elf).ok();
+            let map = self.decomp_elf.make_addr_to_name_map().ok();
             map.unwrap_or_default()
         });
         map.get(&decomp_addr)
             .copied()
-            .or_else(|| elf::plt_addr_to_name(self.decomp_elf, decomp_addr))
+            .or_else(|| self.decomp_elf.plt_addr_to_name(decomp_addr))
     }
+}
+
+fn make_mismatch(
+    i1: &cs::Insn,
+    i2: &cs::Insn,
+    cause: MismatchCause,
+) -> cu::Result<Option<Mismatch>> {
+    Ok(Some(Mismatch {
+        addr_orig: i1.address(),
+        addr_decomp: i2.address(),
+        cause,
+    }))
 }
