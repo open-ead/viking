@@ -213,6 +213,12 @@ tasks:
       - rm -rf src/**/__pycache__ src/**/*.so
       - rm -rf src/viking/_core
 
+  # Steps to create a new release (after a PR is merged):
+  # 1. Checkout the main branch and the commit to publish
+  # 2. Ensure the build action on GitHub has produced the artifacts (the viking-* and wheel-* binaries)
+  # 3. Run `task publish` and wait for the release action to run on GitHub
+  # 4. Publish the draft release created by the release action
+  # 5. The website will be built and deployed upon publishing the release
   publish:
     desc: Tag the current commit and push it to trigger a new release
     cmds:
