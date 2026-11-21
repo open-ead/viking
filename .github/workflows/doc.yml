@@ -1,0 +1,99 @@
+name: doc
+on:
+  pull_request:
+    branches:
+      - main
+  # Use the workflow_dispatch instead of auto-publishing docs
+  # on every push to main. This is because GitHub Pages drops deployment
+  # from the same commit if it matches the current deployed commit.
+  # However, our website hosts the wheels index, which needs to rebuild
+  # to include the latest release.
+  # The website is still deployed automatically with a new release,
+  # but if an update is made without a new release, deployment needs to be manually
+  # triggered.
+  workflow_dispatch: {}
+  release:
+    types:
+      - published
+
+jobs:
+  # Builds the Rust API Docs
+  rust-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Pistonight/mono-dev/actions/setup@main
+        with:
+          mono-dev: false
+          rust: nightly
+      - run: task build-rust-docs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rust-docs
+          path: target/doc-nightly/doc
+          retention-days: 3
+
+  # Builds the Python API Docs and other markdown pages
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Pistonight/mono-dev/actions/setup@main
+        with:
+          mono-dev: false
+          rust: stable
+          python: uv
+      - run: task install
+      - run: task build-python-docs
+      - run: task build-markdown-docs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: website
+          path: dist/docs
+          retention-days: 3
+
+  bundle:
+    needs:
+      - rust-docs
+      - website
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: Pistonight/mono-dev/actions/setup@main
+        with:
+          mono-dev: false
+      - uses: dawidd6/action-download-artifact@v28
+        with:
+          workflow: doc.yml
+          ref: ${{ github.ref }}
+          name: website
+          path: dist/docs
+          workflow_conclusion: ""
+      - uses: dawidd6/action-download-artifact@v28
+        with:
+          workflow: doc.yml
+          ref: ${{ github.ref }}
+          name: rust-docs
+          path: dist/docs/rust
+          workflow_conclusion: ""
+      - run: task build-wheels-index
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/docs
+          retention-days: 3
+
+  deploy:
+    needs:
+      - bundle
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
