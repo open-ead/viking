@@ -1,0 +1,468 @@
+use std::path::{Path, PathBuf};
+
+use cu::pre::*;
+
+use crate::python::pre::*;
+
+/// Used to optimize allocation when loading functions
+pub const FUNCTION_LEN_UPPER_BOUND: usize = 110_000;
+pub const FILE_LIST_UNKNOWN_FILE: &str = "UNKNOWN";
+
+/// Discover and load the configuration TOML file.
+///
+/// See [`discover_config_optional`] for rules to resolve the config file location.
+/// Also see [`discover_config`].
+pub fn load_config() -> cu::Result<Config> {
+    match discover_config_optional() {
+        None => Ok(Default::default()),
+        Some(path) => load_config_at(path?),
+    }
+}
+
+/// Discover the path of the config file. An absolute path is always returned.
+///
+/// Like [`discover_config_optional`], but it will error if `VIKING_CONFIG` is set to `0`
+pub fn discover_config() -> cu::Result<PathBuf> {
+    cu::check!(discover_config_optional(), "a config file is required")?
+}
+
+/// Discover the path of the config file. An absolute path is always returned.
+///
+/// If `VIKING_CONFIG` environment variable is specified, it is used
+/// as the path to the config file, except when it is set to `0`, `None`
+/// will be returned.
+///
+/// Otherwise, the config file is discovered by:
+/// - Use `tools/config.toml` from the current process working directory if it exists;
+/// - Otherwise, check the same path from the parent directory;
+/// - Repeat until the config file is found.
+pub fn discover_config_optional() -> Option<cu::Result<PathBuf>> {
+    if let Ok(path_from_env) = cu::env_var("VIKING_CONFIG")
+        && !path_from_env.is_empty()
+    {
+        if path_from_env == "0" {
+            // special value to use "no config", when just need to
+            // import the python modules without actually calling
+            // anything
+            cu::debug!("VIKING_CONFIG=0, skip loading config");
+            return None;
+        }
+
+        #[inline(always)]
+        fn discover_from_env_imp(p: &Path) -> cu::Result<PathBuf> {
+            let p = p.normalize()?;
+            if !p.is_file() {
+                cu::bail!(
+                    "config file does not exist (set by VIKING_CONFIG): {}",
+                    p.display()
+                );
+            }
+            Ok(p)
+        }
+        return Some(discover_from_env_imp(Path::new(&path_from_env)));
+    }
+
+    #[inline(always)]
+    fn discover_from_current_dir_imp() -> cu::Result<PathBuf> {
+        for d in Path::new(".").normalize()?.ancestors() {
+            let p = cu::path!(&d / "tools" / "config.toml");
+            if !p.is_file() {
+                continue;
+            }
+            cu::debug!("found config file: {}", p.display());
+            return Ok(p);
+        }
+        cu::bail!(
+            "cannot find viking config; please ensure tools/config.toml exists, or set the VIKING_CONFIG environment variable"
+        );
+    }
+    Some(discover_from_current_dir_imp())
+}
+
+/// Load the configuration TOML file from a path (without built-in lookup)
+#[inline(always)]
+pub fn load_config_at(path: impl AsRef<Path>) -> cu::Result<Config> {
+    load_config_at_impl(path.as_ref())
+}
+
+fn load_config_at_impl(path: &Path) -> cu::Result<Config> {
+    let config_toml_string = cu::check!(
+        cu::fs::read_string(path),
+        "failed to read viking config file"
+    )?;
+    let mut config = cu::check!(
+        toml::parse::<Config>(&config_toml_string),
+        "failed to parse viking config file"
+    )?;
+    // hydrate paths in the config
+    let config_directory = path.parent_abs()?;
+    config.repo.root_path = cu::check!(
+        config_directory
+            .join(&config.repo.root_path)
+            .normalize_exists(),
+        "invalid repo.root_path in config: '{}' (must be relative to the containing directory of the config file)",
+        config.repo.root_path.display()
+    )?;
+    config.repo.toolchain_install_path = config
+        .repo
+        .root_path
+        .join(&config.repo.toolchain_install_path)
+        .normalize()?;
+    config.repo.data_path = config
+        .repo
+        .root_path
+        .join(&config.repo.data_path)
+        .normalize()?;
+    config.repo.build_path = config
+        .repo
+        .root_path
+        .join(&config.repo.build_path)
+        .normalize()?;
+    for p in &mut config.repo.toolchain_bin_paths {
+        *p = config.repo.root_path.join(&*p).normalize()?;
+    }
+    if let Some(p) = &mut config.repo.nx_decomp_tools_binaries {
+        *p = config.repo.root_path.join(&*p).normalize()?;
+    }
+
+    Ok(config)
+}
+
+/// Structure of the TOML config file
+#[derive(Debug, Default, Deserialize, Clone, Display)]
+#[display("{:#?}", self)]
+#[pyclass(from_py_object, str, module = "viking._core")]
+pub struct Config {
+    /// The `[repo]` section
+    #[pyo3(get)]
+    pub repo: ConfigRepo,
+    /// The `[check_mismatch]` section
+    #[pyo3(get)]
+    pub check_mismatch: ConfigCheckMismatch,
+    /// The `[decomp_me]` section
+    ///
+    /// Required to use the decompme tool
+    #[pyo3(get)]
+    pub decomp_me: Option<ConfigDecompMe>,
+}
+
+/// Configuration for general project information
+#[derive(Debug, Default, Deserialize, Clone, Display)]
+#[display("{:#?}", self)]
+#[pyclass(from_py_object, str, module = "viking._core")]
+pub struct ConfigRepo {
+    /// Root directory of the repo. Relative to the containing directory
+    /// of the config file. All other paths in the config are relative to
+    /// the root path.
+    #[pyo3(get)]
+    pub root_path: PathBuf,
+
+    /// Path for setup to install toolchains.
+    /// Relative in the config file to `root_path` and absolute at runtime.
+    #[pyo3(get)]
+    #[serde(default = "ConfigRepo::default_toolchain_install_path")]
+    pub toolchain_install_path: PathBuf,
+
+    /// Default version to use when selecting versioned data or build directory/file.
+    #[pyo3(get)]
+    pub default_version: Option<String>,
+
+    /// The address base used by data files and decompilation database
+    #[pyo3(get)]
+    #[serde(default = "ConfigRepo::default_address_base")]
+    pub address_base: u64,
+
+    /// Path to the data directory.
+    /// Relative in the config file to `root_path` and absolute at runtime.
+    ///
+    /// The data directory can be versioned:
+    /// - `<root>/data/*` - data files for the blank version
+    /// - `<root>/data/<version>/*` - data files for `<version>`
+    #[pyo3(get)]
+    pub data_path: PathBuf,
+
+    /// Names of data symbol CSVs inside the data or versioned data directory.
+    ///
+    /// A project may have more than 1 data symbol file. Each data symbol file
+    /// should be a CSV with 2 columns: Address and Name (in this order without a header)
+    data_symbols: Vec<PathBuf>,
+
+    /// Name of the file or function listing inside the data or versioned data directory.
+    ///
+    /// If the name ends with `.csv`, it's assumed to use the old CSV listing format.
+    /// Otherwise it's assumed to be the new YAML format.
+    file_list: PathBuf,
+
+    /// Name of the original game elf inside the data or versioned data directory.
+    #[serde(default = "ConfigRepo::default_original_elf")]
+    original_elf: PathBuf,
+
+    /// Path to the build directory
+    /// Relative in the config file to `root_path` and absolute at runtime.
+    ///
+    /// The build directory can be versioned:
+    /// - `<root>/build/*` - build files for the blank version
+    /// - `<root>/build/<version>/*` - build files for `<version>`
+    #[pyo3(get)]
+    pub build_path: PathBuf,
+
+    /// Name of the decomp elf inside the build or versioned build directory.
+    /// Use [`decomp_elf`](Self::decomp_elf) to get the full path.
+    #[pyo3(get)]
+    pub build_target: String,
+
+    /// Path to the `build.ninja` file, relative to the build or versioned build directory
+    #[serde(default = "ConfigRepo::default_build_ninja")]
+    build_ninja: PathBuf,
+
+    /// Path to the compilation database file (`compile_commands.json`), relative to the build or versioned build directory
+    #[serde(default = "ConfigRepo::default_compilation_database")]
+    compilation_database: PathBuf,
+
+    /// Paths to find tools.
+    /// Relative in the config file to `root_path` and absolute at runtime.
+    toolchain_bin_paths: Vec<PathBuf>,
+
+    /// Path to the [nx-decomp-tools-binaries](https://github.com/open-ead/nx-decomp-tools-binaries)
+    /// repo in the project, if it's used. Relative to `root_path`.
+    ///
+    /// Tools found in `toolchain_bin_paths` are preferred if found
+    nx_decomp_tools_binaries: Option<PathBuf>,
+}
+
+impl ConfigRepo {
+    fn default_toolchain_install_path() -> PathBuf {
+        "toolchain".into()
+    }
+    fn default_address_base() -> u64 {
+        0x71_0000_0000
+    }
+    fn default_original_elf() -> PathBuf {
+        "main.elf".into()
+    }
+    fn default_build_ninja() -> PathBuf {
+        "build.ninja".into()
+    }
+    fn default_compilation_database() -> PathBuf {
+        "compile_commands.json".into()
+    }
+    #[cu::context("failed to find tool: {tool}")]
+    pub fn find_tool(&self, tool: &str) -> cu::Result<PathBuf> {
+        let env = format!(
+            "NX_DECOMP_TOOLS_{tool}",
+            tool = tool.to_uppercase().replace("-", "_")
+        );
+        let tool_from_env = cu::env_var(&env).unwrap_or_default();
+        if !tool_from_env.is_empty() {
+            let tool_from_env = cu::check!(
+                Path::new(&tool_from_env).normalize_executable(),
+                "{env} is specified, but it does not point to a valid executable: {tool_from_env}"
+            )?;
+            return Ok(tool_from_env);
+        }
+        for p in &self.toolchain_bin_paths {
+            if let Ok(tool_from_toolchain) = p.join(tool).normalize_executable() {
+                return Ok(tool_from_toolchain);
+            }
+        }
+        if let Some(p) = &self.nx_decomp_tools_binaries {
+            let platform_dir = if cfg!(target_os = "linux") {
+                Some("linux")
+            } else if cfg!(target_os = "macos") {
+                Some("macos")
+            } else {
+                // not supported platform
+                None
+            };
+            if let Some(platform_dir) = platform_dir {
+                let tool_from_binaries_repo = cu::path!(&p / platform_dir / tool);
+                if let Ok(tool) = tool_from_binaries_repo.normalize_executable() {
+                    return Ok(tool);
+                }
+            }
+        }
+        // last resort - system
+        cu::which(tool)
+    }
+}
+#[pymethods]
+impl ConfigRepo {
+    /// Get the path to the versionless file list file.
+    pub fn file_list(&self) -> PathBuf {
+        self.data_path.join(&self.file_list)
+    }
+    /// Get the path to the optionally-versioned file list file.
+    pub fn file_list_with_version(&self, version: Option<&str>) -> PathBuf {
+        match version {
+            Some(v) => cu::path!(&(&self.data_path) / v / self.file_list),
+            None => self.file_list(),
+        }
+    }
+    /// Get the paths to the versionless data symbol list files.
+    pub fn data_symbols(&self) -> Vec<PathBuf> {
+        self.data_symbols
+            .iter()
+            .map(|x| self.data_path.join(x))
+            .collect()
+    }
+
+    /// Get the paths to the optionally-versioned data symbol list files.
+    pub fn data_symbols_with_version(&self, version: Option<&str>) -> Vec<PathBuf> {
+        match version {
+            Some(v) => self
+                .data_symbols
+                .iter()
+                .map(|x| cu::path!(&(&self.data_path) / v / x))
+                .collect(),
+            None => self.data_symbols(),
+        }
+    }
+    /// Get the path to the versionless original game elf
+    pub fn original_elf(&self) -> PathBuf {
+        self.data_path.join(&self.original_elf)
+    }
+    /// Get the path to the optionally-versioned original game elf
+    pub fn original_elf_with_version(&self, version: Option<&str>) -> PathBuf {
+        match version {
+            Some(v) => cu::path!(&(&self.data_path) / v / self.original_elf),
+            None => self.original_elf(),
+        }
+    }
+    /// Get the path to the versionless original game nso, which is the original
+    /// elf path with extension changed to `.nso`.
+    pub fn original_nso(&self) -> PathBuf {
+        self.original_elf().with_extension("nso")
+    }
+    /// Get the path to the optionally-versioned original game nso, which is the
+    /// original elf path with extension changed to `.nso`.
+    pub fn original_nso_with_version(&self, version: Option<&str>) -> PathBuf {
+        self.original_elf_with_version(version)
+            .with_extension("nso")
+    }
+    /// Get the path to the versionless decomp elf
+    pub fn decomp_elf(&self) -> PathBuf {
+        self.build_path.join(&self.build_target)
+    }
+    /// Get the path to the optionally-versioned decomp elf
+    pub fn decomp_elf_with_version(&self, version: Option<&str>) -> PathBuf {
+        match version {
+            Some(v) => cu::path!(&(&self.build_path) / v / self.build_target),
+            None => self.decomp_elf(),
+        }
+    }
+    /// Get the path to the versionless build.ninja build file
+    pub fn build_ninja(&self) -> PathBuf {
+        self.build_path.join(&self.build_ninja)
+    }
+    /// Get the path to the optionally-versioned build.ninja build file
+    pub fn build_ninja_with_version(&self, version: Option<&str>) -> PathBuf {
+        match version {
+            Some(v) => cu::path!(&(&self.build_path) / v / self.build_ninja),
+            None => self.build_ninja(),
+        }
+    }
+
+    /// Get the path to the versionless compilation database JSON file
+    pub fn compilation_database(&self) -> PathBuf {
+        self.build_path.join(&self.compilation_database)
+    }
+    /// Get the path to the optionally-versioned compilation database JSON file
+    pub fn compilation_database_with_version(&self, version: Option<&str>) -> PathBuf {
+        match version {
+            Some(v) => cu::path!(&(&self.build_path) / v / self.compilation_database),
+            None => self.compilation_database(),
+        }
+    }
+}
+
+/// Configuration for checking mismatches
+#[derive(Debug, Default, Deserialize, Clone, Display)]
+#[display("{:#?}", self)]
+#[pyclass(from_py_object, str, module = "viking._core")]
+pub struct ConfigCheckMismatch {
+    /// asm_differ options
+    #[pyo3(get)]
+    pub asm_differ: ConfigCheckMismatchAsmDiffer,
+    /// Treat the object paths in the YAML file list as relative to one of
+    /// these paths (relative to project root). If not specified or empty,
+    /// the object paths should be treated as relative to the project root
+    /// itself.
+    ///
+    /// This avoids having to change the file list when the project is refactored
+    /// in the future.
+    ///
+    /// For example, suppose a source file is `<root>/src/Foo/fooBar.cpp`,
+    /// usually this would require the object path to be `src/Foo/fooBar.o`.
+    /// You can set this config to `["src/"]`, and the object path can be
+    /// listed as `Foo/fooBar.o` in the file list.
+    #[pyo3(get)]
+    #[serde(default)]
+    pub file_list_object_path_relative_to: Vec<String>,
+    /// Skip the "object checks" for object names starting with these prefixes.
+    ///
+    /// "object checks" are checks other than the asm-matching check, such as
+    /// placement, link order, NON_MATCHING comment...
+    #[pyo3(get)]
+    #[serde(default)]
+    pub no_object_check_for: Vec<String>,
+    /// Check function call targets even when the branch target is in the PLT
+    /// section
+    #[pyo3(get)]
+    #[serde(default = "ConfigCheckMismatch::default_check_unimplemented_references")]
+    pub check_unimplemented_references: bool,
+}
+impl ConfigCheckMismatch {
+    fn default_check_unimplemented_references() -> bool {
+        true
+    }
+}
+
+/// Options for calling `asm-differ`
+#[derive(Debug, Default, Deserialize, Clone, Display)]
+#[display("{:#?}", self)]
+#[pyclass(from_py_object, str, module = "viking._core")]
+pub struct ConfigCheckMismatchAsmDiffer {
+    /// `source_directories` config option in asm_differ; will be appended to repo.root_path
+    #[pyo3(get)]
+    pub source_directories: Vec<String>,
+}
+
+/// Configuration for creating decomp.me snippets
+#[derive(Debug, Deserialize, Clone, Display)]
+#[display("{:#?}", self)]
+#[pyclass(from_py_object, str, module = "viking._core")]
+pub struct ConfigDecompMe {
+    /// Target configuration. Must specify either `compiler_name` and `default_compile_flags`,
+    /// or `preset_id`.
+    #[pyo3(get)]
+    #[serde(flatten)]
+    pub target: ConfigDecompMeTarget,
+
+    /// Toggle overriding of default flags with flags discovered in compilation database. (True by default)
+    #[pyo3(get)]
+    #[serde(default = "ConfigDecompMe::default_override_compile_flags")]
+    pub override_compile_flags: bool,
+}
+impl ConfigDecompMe {
+    fn default_override_compile_flags() -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Display)]
+#[display("{:#?}", self)]
+#[pyclass(from_py_object, str, module = "viking._core")]
+#[serde(untagged, deny_unknown_fields)]
+pub enum ConfigDecompMeTarget {
+    Preset {
+        /// ID of the decomp.me preset to use, which groups scratches by project.
+        /// The preset (with its compiler and flags) must already be registered on decomp.me.
+        preset_id: String,
+    },
+    CompilerAndFlags {
+        /// Name of the compiler used to compile the code
+        compiler_name: String,
+        /// Compilation flags that are used for creating scratches.
+        default_compile_flags: String,
+    },
+}
