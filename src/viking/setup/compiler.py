@@ -1,69 +1,18 @@
 import platform
-from pathlib import Path
-import subprocess
-import sys
-import warnings
 import tarfile
 import tempfile
 import urllib.request
-from typing import NoReturn
 
-from common.util import config, tools
-
-ROOT = Path(__file__).parent.parent.parent
-
-def get_target_path(version = config.get_default_version()):
-    return config.get_versioned_data_path(version) / "main.nso"
-
-def get_uncompressed_target_path(version = config.get_default_version()):
-    return config.get_versioned_data_path(version) / "main.uncompressed.nso"
-
-def get_target_elf_path(version = config.get_default_version()):
-    return config.get_versioned_data_path(version) / "main.elf"
-
-def fail(error: str) -> NoReturn:
-    print(">>> " + error)
-    sys.exit(1)
-
-def _convert_nso_to_elf(nso_path: Path, elf_out_path = get_target_elf_path(), uncompressed_nso_out_path = get_uncompressed_target_path()):
-    print(">>>> converting NSO to ELF...")
-    command = [tools.find_tool("nx2elf"), str(nso_path), "--export-elf", elf_out_path];
-    if uncompressed_nso_out_path is not None:
-        command.append("--export-uncompressed")
-        command.append(uncompressed_nso_out_path)
-    subprocess.check_call(command)
+from .. import ui
+from ..core import get_config
 
 
-def _decompress_nso(nso_path: Path, dest_path: Path):
-    warnings.warn("Using hactool to decompress the target NSO is deprecated, please use `_convert_nso_to_elf` instead", DeprecationWarning, stacklevel=2)
-    print(">>>> decompressing NSO...")
-    subprocess.check_call([tools.find_tool("hactool"), "-tnso",
-                           "--uncompressed=" + str(dest_path), str(nso_path)])
-
-def install_viking():
-    print(">>>> installing viking (tools/check)")
-    src_path = ROOT / "tools" / "common" / "viking"
-    install_path = ROOT / "tools"
-
-    try:
-        subprocess.check_call(["cargo", "build", "--manifest-path", src_path / "Cargo.toml", "--release"])
-        for tool in ["check", "listsym", "decompme"]:
-            (src_path / "target" / "release" / tool).rename(install_path / tool)
-    except FileNotFoundError:
-        print(sys.exc_info()[0])
-        fail("error: install cargo (rust) and try again")
-
-def _apply_xdelta3_patch(input: Path, patch: Path, dest: Path):
-    print(">>>> applying patch...")
-    try:
-        subprocess.check_call(["xdelta3", "-d", "-s", str(input), str(patch), str(dest)])
-    except FileNotFoundError:
-        fail("error: install xdelta3 and try again")
-
-def set_up_compiler(version):
-    compiler_dir = ROOT / "toolchain" / ("clang-"+version)
+def install_clang(version: str):
+    """Set up a specific version of Clang in the toolchain install path (`repo.toolchain_install_path` in the config)"""
+    config = get_config()
+    compiler_dir = config.repo.toolchain_install_path / ("clang-" + version)
     if compiler_dir.is_dir():
-        print(">>> clang is already set up: nothing to do")
+        ui.step("clang is already set up: nothing to do")
         return
 
     system = platform.system()
@@ -79,7 +28,7 @@ def set_up_compiler(version):
             ("Linux", "aarch64"): {
                 "url": "https://releases.llvm.org/3.9.1/clang+llvm-3.9.1-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-3.9.1-aarch64-linux-gnu",
-            }
+            },
         }
     elif version == "4.0.1":
         builds = {
@@ -92,7 +41,6 @@ def set_up_compiler(version):
                 "url": "https://releases.llvm.org/4.0.1/clang+llvm-4.0.1-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-4.0.1-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://releases.llvm.org/4.0.1/clang+llvm-4.0.1-x86_64-apple-darwin.tar.xz",
@@ -114,7 +62,6 @@ def set_up_compiler(version):
                 "url": "https://releases.llvm.org/5.0.1/clang+llvm-5.0.1-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-5.0.1-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://releases.llvm.org/5.0.1/clang+llvm-5.0.1-x86_64-apple-darwin.tar.xz",
@@ -136,12 +83,11 @@ def set_up_compiler(version):
                 "url": "https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-7.1.0-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz",
                 "dir_name": "clang+llvm-7.0.0-x86_64-apple-darwin",
-            }
+            },
         }
     elif version == "7.1.0":
         builds = {
@@ -153,7 +99,7 @@ def set_up_compiler(version):
             ("Linux", "aarch64"): {
                 "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-7.1.0/clang+llvm-7.1.0-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-7.1.0-aarch64-linux-gnu",
-            }
+            },
         }
     elif version == "8.0.0":
         builds = {
@@ -166,12 +112,11 @@ def set_up_compiler(version):
                 "url": "https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-8.0.0-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-apple-darwin.tar.xz",
                 "dir_name": "clang+llvm-8.0.0-x86_64-apple-darwin",
-            }
+            },
         }
     elif version == "9.0.0":
         builds = {
@@ -184,12 +129,11 @@ def set_up_compiler(version):
                 "url": "https://releases.llvm.org/9.0.0/clang+llvm-9.0.0-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-9.0.0-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://releases.llvm.org/9.0.0/clang+llvm-9.0.0-x86_64-darwin-apple.tar.xz",
                 "dir_name": "clang+llvm-9.0.0-x86_64-apple-darwin",
-            }
+            },
         }
     elif version == "10.0.0":
         builds = {
@@ -202,12 +146,11 @@ def set_up_compiler(version):
                 "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-10.0.0-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz",
                 "dir_name": "clang+llvm-10.0.0-x86_64-apple-darwin",
-            }
+            },
         }
     elif version == "11.0.0":
         builds = {
@@ -220,32 +163,32 @@ def set_up_compiler(version):
                 "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/clang+llvm-11.0.0-aarch64-linux-gnu.tar.xz",
                 "dir_name": "clang+llvm-11.0.0-aarch64-linux-gnu",
             },
-
             # macOS
             ("Darwin", "x86_64"): {
                 "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.0/clang+llvm-11.0.0-x86_64-apple-darwin.tar.xz",
                 "dir_name": "clang+llvm-11.0.0-x86_64-apple-darwin",
-            }
+            },
         }
     else:
         builds = {}
 
     build_info = builds.get((system, machine))
     if build_info is None:
-        fail(
-            f"unknown platform: {platform.platform()} - {version} (please report if you are on Linux and macOS)")
+        ui.bail(
+            f"unknown platform: {platform.platform()} - {version} (please report if you are on Linux and macOS)"
+        )
 
     url: str = build_info["url"]
     dir_name: str = build_info["dir_name"]
 
-    print(f">>> downloading Clang from {url}...")
+    ui.step(f"downloading Clang from {url}...")
     with tempfile.TemporaryDirectory() as tmpdir:
         path = tmpdir + "/" + url.split("/")[-1]
         urllib.request.urlretrieve(url, path)
 
-        print(f">>> extracting Clang...")
+        ui.step("extracting Clang...")
         with tarfile.open(path) as f:
             f.extractall(compiler_dir.parent)
             (compiler_dir.parent / dir_name).rename(compiler_dir)
 
-    print(">>> successfully set up Clang")
+    ui.step("successfully set up Clang")
