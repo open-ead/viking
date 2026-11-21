@@ -34,7 +34,7 @@ cache-keys = [
 config-settings = { "maturin.build-args" = "--compatibility pypi" }
 
 [tool.ruff]
-extend-exclude = ["src/viking/_core"]
+extend-exclude = ["src/viking/_core", "util", "progress.py", "setup_common.py"]
 
 [tool.ruff.lint]
 extend-fixable = ["I001", "RUF022"] # trivial fixes only
