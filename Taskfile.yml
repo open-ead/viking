@@ -15,6 +15,7 @@ tasks:
     desc: Install dependencies
     cmds:
       - task: install-deps
+      - task: cli-bindgen
       - task: py-bindgen
 
   run:
@@ -31,6 +32,7 @@ tasks:
 
   check-main:
     cmds:
+      - task: cli-bindgen
       - task: py-bindgen
       - uv run --no-sync basedpyright --warnings
       - task: cargo-clippy
@@ -39,15 +41,14 @@ tasks:
       - task: cargo-clippy
         vars:
           FLAGS: --no-default-features --features elf
+      - silent: true
+        cmd: |
+          for c in $(python3 scripts/gen-cli.py --list); do
+            {{.TASK_EXE}} cargo-clippy-command -- $c
+          done
       - task: cargo-clippy
         vars:
-          FLAGS: --no-default-features --features cmd-check
-      - task: cargo-clippy
-        vars:
-          FLAGS: --no-default-features --features cmd-decompme
-      - task: cargo-clippy
-        vars:
-          FLAGS: --no-default-features --features cmd-listsym
+          FLAGS: --no-default-features --features cmd-all
       - task: cargo-clippy
         vars:
           FLAGS: --no-default-features --features python
@@ -62,6 +63,7 @@ tasks:
     cmds:
       - silent: true
         cmd: |
+          echo '==> checking core module layers'
           # skip locally if layered-crate is not installed; always run in CI
           if [ -z "$CI" ] && ! command -v layered-crate > /dev/null 2>&1; then
             echo "WARNING: layered-crate is not installed, skipping layer check (please \`cargo install layered-crate\`)" >&2
@@ -90,10 +92,13 @@ tasks:
     desc: Build the rust CLI
     cmds:
       - cargo build --bin viking --release --features global-allocator,cmd-all
-      - rm -f target/release/viking-*
-      - ln target/release/viking target/release/viking-check
-      - ln target/release/viking target/release/viking-decompme
-      - ln target/release/viking target/release/viking-listsym
+      - silent: true
+        cmd: |
+          echo '==> hardlinking the commands to target/release/viking-* ...'
+          rm -f target/release/viking-*
+          for c in $(python3 scripts/gen-cli.py --list); do
+            ln target/release/viking target/release/viking-$c
+          done
 
   doc:
     desc: Generate API docs
@@ -140,6 +145,11 @@ tasks:
       # which is slow because UV has to rebuild all the Rust side
       # from scratch
       - uv sync --no-install-project
+
+  cli-bindgen:
+    desc: (Re-)generate the CLI entry points based on commands defined in gen-cli.py
+    cmds:
+      - python3 scripts/gen-cli.py {{.CLI_ARGS}}
 
   py-bindgen:
     internal: true # Just run the install task to regenerate the binding
@@ -209,6 +219,13 @@ tasks:
       # stdlib only, so CI can run it without installing the project environment
       - python3 scripts/build-wheels-index.py
 
+  cargo-clippy-command:
+    # helper command to run cargo-clippy for a cmd-* feature
+    cmds:
+      - task: cargo-clippy
+        vars:
+          FLAGS: --no-default-features --features cmd-{{.CLI_ARGS}}
+
   cargo-clippy:
     vars:
       CLIPPY_FLAGS: >
@@ -221,7 +238,10 @@ tasks:
     env:
       RUSTDOCFLAGS: -D warnings
     cmds:
-      - cargo clippy {{.FLAGS}} -- {{.CLIPPY_FLAGS}}
+      - silent: true
+        cmd: |
+          echo '==> cargo-clippy: {{.FLAGS}}'
+          cargo clippy {{.FLAGS}} -- {{.CLIPPY_FLAGS}}
 
   clean:
     desc: Clean caches and outputs. Commands will run slower!

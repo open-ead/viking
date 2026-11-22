@@ -1,6 +1,8 @@
 {
     "venvPath": ".",
     "venv": ".venv",
+    "include": [ "src", "scripts" ],
+    "exclude": ["**/target", "**/__pycache__", "**/.*"],
     "ignore": [
         "src/viking/_core.pyi",
         "src/viking/_core/**/*.pyi",

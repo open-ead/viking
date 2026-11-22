@@ -28,3 +28,16 @@ pub fn pymethods(_attr: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 mod py_stubs;
+
+/// Generate the CLI entry point functions in Rust
+#[proc_macro]
+pub fn make_cli(input: TokenStream) -> TokenStream {
+    pm::flatten(make_cli::expand_rust(input))
+}
+
+/// Generate the CLI entry point functions in Rust for Python
+#[proc_macro]
+pub fn make_python_cli(input: TokenStream) -> TokenStream {
+    pm::flatten(make_cli::expand_python(input))
+}
+mod make_cli;
