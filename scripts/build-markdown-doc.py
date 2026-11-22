@@ -40,6 +40,7 @@ REPO_BLOB_URL = f"{REPO_URL}/blob/main"
 ORDER = [
     "SETUP",
     "CONTRIBUTING",
+    "ARCHITECTURE",
 ]
 
 # pdoc icons used by alerts ("> [!NOTE]" etc.), see theme.css
