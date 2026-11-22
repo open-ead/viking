@@ -40,6 +40,7 @@ perf.data.old
 /target
 *.so
 *.dll
+src/viking_core/target
 
 # Caches
 .task

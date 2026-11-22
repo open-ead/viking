@@ -1,8 +1,9 @@
-// re-exports
 use capstone as cs;
 use cs::RegId;
 use cs::arch::ArchOperand;
 use cs::arch::arm64::{Arm64Insn, Arm64OpMem, Arm64Operand, Arm64OperandType};
+
+// REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/capstone_utils.rs
 
 pub fn translate_cs_error<T>(err: cs::Error) -> cu::Result<T> {
     cu::bail!("capstone error: {}", err)

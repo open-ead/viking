@@ -1,0 +1,50 @@
+[crate]
+
+[layer.pyapi]
+depends-on = [
+    "cli",
+    "fl",
+    "demangle",
+    "ui",
+    "python",
+    "config",
+    "pyinterop"
+]
+
+[layer.cli]
+depends-on = [
+    "cmd_check",
+    "cmd_decompme",
+    "cmd_listsym",
+    "config"
+]
+
+[layer.cmd_check]
+depends-on = ["config", "fl", "demangle", "elf", "ui", "python"]
+
+[layer.cmd_decompme]
+depends-on = ["config", "fl", "demangle", "elf", "ui"]
+
+[layer.cmd_listsym]
+depends-on = ["config", "fl", "demangle", "elf"]
+
+[layer.elf]
+depends-on = ["config", "fl", "demangle", "ui"]
+
+[layer.fl]
+depends-on = ["config", "pyinterop", "python", "ui", "demangle"]
+
+[layer.python]
+depends-on = ["config", "pyinterop"]
+impl = ["pyinterop"]
+
+[layer.config]
+depends-on = ["pyinterop"]
+
+[layer.ui]
+depends-on = ["pyinterop", "demangle"]
+
+[layer.demangle]
+depends-on = ["pyinterop"]
+
+[layer.pyinterop]

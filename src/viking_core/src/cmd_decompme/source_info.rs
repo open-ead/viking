@@ -33,6 +33,7 @@ pub fn prepare_source_info(
     source_file: &str,
     function_info: &fl::Info,
 ) -> cu::Result<PreprocessedSource> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L497
     ui::step!("source file: {}", source_file.dimmed());
 
     let (entry, source_path) = {
@@ -129,6 +130,7 @@ pub fn prepare_source_info(
 /// Read and parse compile_commands.json
 #[cu::context("failed to load compilation database")]
 fn load_compilation_database(config: &Config, args: &Args) -> cu::Result<CompDbEntries> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L52
     // Read the whole file at once and parse the JSON manually.
     // json_compilation_db::from_file is terribly slow.
     let data_str = match &args.compilation_database {
@@ -156,6 +158,7 @@ fn load_compilation_database(config: &Config, args: &Args) -> cu::Result<CompDbE
 
 /// Remove -c and -o flags
 fn remove_output_flags(command: &mut Vec<String>) {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L173
     let mut remove_next = false;
     command.retain(|arg| {
         if remove_next {
@@ -176,6 +179,7 @@ fn remove_output_flags(command: &mut Vec<String>) {
 /// Run the preprocessor to get the expanded source file
 #[cu::context("failed to run preprocessor for entry: {entry:?}")]
 fn run_preprocessor(args: &Args, entry: &CompDbEntry) -> cu::Result<PreprocessedIncludes> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L275
     let command = &entry.arguments;
 
     if args.real_preprocessor {
@@ -214,6 +218,7 @@ fn run_preprocessor(args: &Args, entry: &CompDbEntry) -> cu::Result<Preprocessed
 }
 
 fn get_system_include_paths(stderr: &str) -> Vec<String> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L191
     stderr
         .lines()
         .skip_while(|&line| line != "#include <...> search starts here:")
@@ -223,6 +228,7 @@ fn get_system_include_paths(stderr: &str) -> Vec<String> {
         .collect()
 }
 fn uninclude_includes(stdout: &str, include_paths: &[String]) -> String {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L201
     let mut result = String::with_capacity(stdout.len());
 
     // The current include stack.
@@ -429,6 +435,7 @@ fn extract_function_from_source(
     function_name: &str,
     system_include_dirs: &[String],
 ) -> cu::Result<String> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L153
     let FunctionTextInfo {
         mut range_start,
         range_end,
@@ -456,6 +463,7 @@ fn find_function_with_libclang(
     function_name: &str,
     system_include_dirs: &[String],
 ) -> cu::Result<FunctionTextInfo> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L142
     use std::io::Write;
 
     // Create temporary file to pass as input to libclang. Must have the ".cpp" extension to be
@@ -499,6 +507,7 @@ fn try_find_function_from_ast_entity<'tu>(
     entity: ClangEntity<'tu>,
     fn_name: &str,
 ) -> Option<FunctionTextInfo> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L83
     fn get_namespace_string<'tu>(entity: clang::Entity<'tu>) -> String {
         let mut parent = Some(entity);
         let mut namespace = String::new();

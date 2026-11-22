@@ -21,6 +21,7 @@ pub fn run_check_single(
     fn_to_check: &str,
     args: &Args,
 ) -> cu::Result<()> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L337
     let version = args.version();
 
     let resolve_fn_to_check =
@@ -363,6 +364,7 @@ fn show_asm_differ(
     differ_args: &[String],
     version: Option<&str>,
 ) -> cu::Result<()> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L605
     let mut args = vec![
         "-I".to_string(),
         "-e".to_string(),
@@ -395,6 +397,8 @@ fn rediff_function_after_differ(
     previous_check_result: &Option<Mismatch>,
     version: Option<&str>,
 ) -> cu::Result<Option<Mismatch>> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L644
+
     // Reload the decomp ELF because it may have been modified.
     //
     // This can typically happen if the differ was invoked with -mw (auto rebuild);

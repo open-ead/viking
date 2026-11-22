@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 
 from viking.core import find_tool, get_config
 
+# REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/diff_settings.py
+
 
 def add_custom_arguments(parser: ArgumentParser):
     _ = parser.add_argument(

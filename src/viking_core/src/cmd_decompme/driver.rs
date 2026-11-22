@@ -14,6 +14,7 @@ use crate::cmd_decompme::upload_scratch::{self, ScratchSource};
 
 /// Entry point for the decompme command
 pub fn run(config: &Config, args: Args) -> cu::Result<()> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L456
     let decomp_me_config = cu::check!(
         config.decomp_me.as_ref(),
         "the [decomp_me] config section is required to use this tool"

@@ -8,6 +8,7 @@ use crate::fl;
 /// Create the disassembly for the original function suitable
 /// as the target to match against
 pub fn create_disassembly(info: &fl::Info, func: &elf::Function<'_>) -> cu::Result<String> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L424
     let func_name = info.name();
     let mut disassembly = format!("{func_name}:\n");
 
@@ -24,6 +25,7 @@ pub fn create_disassembly(info: &fl::Info, func: &elf::Function<'_>) -> cu::Resu
         // than absolute addresses for labels.
         let _ = write!(disassembly, "{}", insn.op());
         for (index, op) in insn.operands().iter().enumerate() {
+            // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L401
             if index != 0 {
                 let _ = write!(disassembly, ",");
             }

@@ -13,6 +13,7 @@ pub struct ReferenceDiff {
 
 impl std::fmt::Display for ReferenceDiff {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs#L109
         writeln!(f,
             "incorrect reference; expected to see {ref} {ref_name}",
             ref=ui::format_address(self.referenced_symbol),
@@ -51,6 +52,7 @@ pub enum MismatchCause {
 
 impl std::fmt::Display for MismatchCause {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs#L147
         match &self {
             Self::FunctionSize => write!(f, "wrong function size"),
             Self::Register => write!(f, "wrong register"),
@@ -75,6 +77,7 @@ pub struct Mismatch {
 
 impl std::fmt::Display for Mismatch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs#L169
         write!(
             f,
             "mismatch at {}: {}",

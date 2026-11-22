@@ -183,6 +183,9 @@ class ConfigRepo:
         """Root directory of the repo. Relative to the containing directory
         of the config file. All other paths in the config are relative to
         the root path.
+
+        This must be the root directory of the git repo, as there are git utilities
+        that rely on this behavior.
         """
     @property
     def toolchain_install_path(self, /) -> Path:

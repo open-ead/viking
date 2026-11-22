@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use cu::pre::*;
 
-use crate::python::pre::*;
+use crate::pyinterop::pre::*;
 
 /// Used to optimize allocation when loading functions
 pub const FUNCTION_LEN_UPPER_BOUND: usize = 110_000;
@@ -154,6 +154,9 @@ pub struct ConfigRepo {
     /// Root directory of the repo. Relative to the containing directory
     /// of the config file. All other paths in the config are relative to
     /// the root path.
+    ///
+    /// This must be the root directory of the git repo, as there are git utilities
+    /// that rely on this behavior.
     #[pyo3(get)]
     pub root_path: PathBuf,
 
@@ -248,6 +251,7 @@ impl ConfigRepo {
     }
     #[cu::context("failed to find tool: {tool}")]
     pub fn find_tool(&self, tool: &str) -> cu::Result<PathBuf> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/util/tools.py
         let env = format!(
             "NX_DECOMP_TOOLS_{tool}",
             tool = tool.to_uppercase().replace("-", "_")
