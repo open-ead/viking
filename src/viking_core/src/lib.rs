@@ -57,6 +57,10 @@ mod cmd_decompme;
 #[cfg(feature = "cmd-listsym")]
 mod cmd_listsym;
 
+/// The `progress` command
+#[cfg(feature = "cmd-progress")]
+mod cmd_progress;
+
 // === core stuff ===========================
 
 #[cfg(feature = "elf")]

@@ -3,3 +3,4 @@
 viking_proc_macro::make_cli!(check);
 viking_proc_macro::make_cli!(decompme);
 viking_proc_macro::make_cli!(listsym);
+viking_proc_macro::make_cli!(progress);

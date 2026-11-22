@@ -10,6 +10,7 @@ use crate::python::{RustState, State};
 viking_proc_macro::make_python_cli!(check);
 viking_proc_macro::make_python_cli!(decompme);
 viking_proc_macro::make_python_cli!(listsym);
+viking_proc_macro::make_python_cli!(progress);
 
 /// The low-level Python-Rust bindings
 ///
@@ -34,7 +35,7 @@ mod _core {
     /// Initialize the Rust extension module
     #[pyfunction]
     pub fn init_core_state(sys_executable: &str, sys_argv0: &str) -> PyResult<State> {
-        ui::init_logger();
+        crate::ui::init_logger();
         pyinterop::into_pyresult(python::set_python_program_args(sys_executable, [sys_argv0]))?;
 
         let config = pyinterop::into_pyresult(crate::config::load_config())?;
@@ -67,6 +68,9 @@ mod _core {
     #[cfg(feature = "cmd-listsym")]
     #[pymodule_export]
     use _core_cmd_listsym;
+    #[cfg(feature = "cmd-progress")]
+    #[pymodule_export]
+    use _core_cmd_progress;
 
     // ======= file list (fl) =======
 
@@ -202,6 +206,5 @@ mod _core {
     }
 
     #[pymodule_export]
-    use crate::demangle::{demangle_or_as_is, raw_or_demangled_contains};
-    use crate::ui;
+    use crate::demangle::{demangle_or_as_is, get_top_namespace, raw_or_demangled_contains};
 }

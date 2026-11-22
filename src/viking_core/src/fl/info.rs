@@ -5,7 +5,7 @@ use colored::Colorize;
 use cu::pre::*;
 use itertools::Itertools;
 use rayon::prelude::*;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::demangle;
 use crate::fl;
@@ -354,7 +354,7 @@ impl AddressLabel {
 mod status_imp {
     use super::*;
     /// Decompilation status of a function/symbol
-    #[derive(Default, Clone, Copy, Serialize, Deserialize, Debug, Display, PartialEq, Eq)]
+    #[derive(Default, Clone, Copy, Serialize, Deserialize, Debug, Display, PartialEq, Eq, Hash)]
     #[display("{}", self.description())]
     #[pyclass(from_py_object, str)]
     pub enum Status {
@@ -384,21 +384,70 @@ impl Status {
             "NotDecompiled" => Self::NotDecompiled,
             "Wip" => Self::Wip,
             "Library" => Self::Library,
-            other => cu::bail!("unexpected status string: {other}"),
+            other => cu::bail!("invalid status string: {other}"),
         })
     }
     /// Parse status code into enum
     pub fn from_code(s: &str) -> cu::Result<Self> {
-        Ok(match s.trim() {
-            "m" => Self::NonMatchingMinor,
-            "M" => Self::NonMatchingMajor,
-            "O" => Self::Matching,
-            "U" => Self::NotDecompiled,
-            "W" => Self::Wip,
-            "L" => Self::Library,
-            other => cu::bail!("unexpected status code: {other}"),
+        let s = s.trim();
+        let mut chars = s.chars();
+        let Some(c) = chars.next() else {
+            cu::bail!("invalid status code: {s}");
+        };
+        if chars.next().is_some() {
+            cu::bail!("invalid status code: {s}");
+        }
+        Self::from_char(c)
+    }
+    /// Parse status code into enum
+    pub fn from_char(c: char) -> cu::Result<Self> {
+        Ok(match c {
+            'm' => Self::NonMatchingMinor,
+            'M' => Self::NonMatchingMajor,
+            'O' => Self::Matching,
+            'U' => Self::NotDecompiled,
+            'W' => Self::Wip,
+            'L' => Self::Library,
+            other => cu::bail!("invalid status code: {other}"),
         })
     }
+    /// Parse a string into a set.
+    ///
+    /// The string can be:
+    /// - A status name (e.g. `NotDecompiled`),
+    /// - A list of status char codes (e.g. `OUMmL`). Non-alphanumeric characters are ignored.
+    /// - Case-insensitive `all` that is parsed to all values
+    pub fn parse_set(s: &str) -> cu::Result<FxHashSet<Self>> {
+        let s = s.trim();
+        if s.eq_ignore_ascii_case("all") {
+            return Ok(Self::all().iter().copied().collect());
+        }
+        if let Ok(x) = Self::from_name(s) {
+            return Ok(std::iter::once(x).collect());
+        }
+        let mut set = FxHashSet::default();
+        for c in s.chars() {
+            if !c.is_alphanumeric() {
+                continue;
+            }
+            let x = Self::from_char(c)?;
+            set.insert(x);
+        }
+        Ok(set)
+    }
+
+    /// Get a list of all statuses.
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::Matching,
+            Self::NonMatchingMajor,
+            Self::NonMatchingMinor,
+            Self::NotDecompiled,
+            Self::Wip,
+            Self::Library,
+        ]
+    }
+
     /// Get the single-character code representation
     pub fn code(self) -> char {
         match self {
@@ -436,6 +485,19 @@ impl Status {
     #[pyo3(name = "from_code")]
     #[staticmethod]
     fn py_from_code(s: &str) -> PyResult<Self> { pyinterop::into_pyresult(Self::from_code(s)) }
+    /// Parse a string into a set.
+    ///
+    /// The string can be:
+    /// - A status name (e.g. `NotDecompiled`),
+    /// - A list of status char codes (e.g. `OUMmL`). Non-alphanumeric characters are ignored.
+    /// - Case-insensitive `all` that is parsed to all values
+    #[pyo3(name = "parse_set")]
+    #[staticmethod]
+    fn py_parse_set(s: &str) -> PyResult<FxHashSet<Self>> { pyinterop::into_pyresult(Self::parse_set(s)) }
+    /// Get a list of all statuses
+    #[pyo3(name = "all")]
+    #[staticmethod]
+    fn py_all() -> Vec<Self> { Self::all().to_vec() }
     /// Get the single-character code representation
     #[pyo3(name = "code")]
     fn py_code(&self) -> char { self.code() }

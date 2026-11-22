@@ -178,6 +178,9 @@ class Status:
     def __int__(self, /) -> int: ...
     def __repr__(self, /) -> str: ...
     def __str__(self, /) -> str: ...
+    @staticmethod
+    def all() -> list[Status]:
+        """Get a list of all statuses"""
     def code(self, /) -> str:
         """Get the single-character code representation"""
     def description(self, /) -> str:
@@ -188,6 +191,15 @@ class Status:
     @staticmethod
     def from_name(s: str) -> Status:
         """Parse status string into enum"""
+    @staticmethod
+    def parse_set(s: str) -> set[Status]:
+        """Parse a string into a set.
+
+        The string can be:
+        - A status name (e.g. `NotDecompiled`),
+        - A list of status char codes (e.g. `OUMmL`). Non-alphanumeric characters are ignored.
+        - Case-insensitive `all` that is parsed to all values
+        """
 
 def is_csv(state: State, version: str | None) -> bool: ...
 def load_file_list(state: State, version: str | None) -> FileList: ...

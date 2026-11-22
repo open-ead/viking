@@ -81,3 +81,5 @@ To add a new command:
 
 Everything else that need to be hooked up will be handled by the generator script.
 
+If your language server does not pick up the new files, look at the [Rust feature flags](#rust-feature-flags) section above.
+

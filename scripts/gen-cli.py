@@ -21,6 +21,7 @@ COMMANDS = [
     "check",
     "decompme",
     "listsym",
+    "progress",
 
     # ^ Add new commands here
 ]

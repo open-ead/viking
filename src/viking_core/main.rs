@@ -55,6 +55,9 @@ fn try_multi_call(exe_name: &[u8], args: Args) -> Result<cu::Result<u32>, Args> 
     if exe_name.ends_with(b"listsym") {
         return Ok(viking::cli::listsym_argv(args.collect()));
     }
+    if exe_name.ends_with(b"progress") {
+        return Ok(viking::cli::progress_argv(args.collect()));
+    }
     Err(args)
 }
 
@@ -71,6 +74,9 @@ fn try_multi_call_exact(exe_name: &[u8], args: Args) -> Result<cu::Result<u32>, 
     if exe_name == b"listsym" {
         return Ok(viking::cli::listsym_argv(args.collect()));
     }
+    if exe_name == b"progress" {
+        return Ok(viking::cli::progress_argv(args.collect()));
+    }
     Err(args)
 }
 
@@ -84,4 +90,5 @@ fn print_multicall_help() {
     eprintln!("  check       Checks if the compiled bytecode of a function matches the assembly found within the game elf.");
     eprintln!("  decompme    Upload a function to decomp.me.");
     eprintln!("  listsym     Print symbols in the output ELF.");
+    eprintln!("  progress    Show decompilation progress");
 }

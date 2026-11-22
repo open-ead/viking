@@ -16,6 +16,7 @@ depends-on = [
     "cmd_check",
     "cmd_decompme",
     "cmd_listsym",
+    "cmd_progress",
     "config"
 ]
 
@@ -27,6 +28,9 @@ depends-on = ["config", "fl", "demangle", "elf", "ui"]
 
 [layer.cmd_listsym]
 depends-on = ["config", "fl", "demangle", "elf"]
+
+[layer.cmd_progress]
+depends-on = ["config", "fl"]
 
 [layer.elf]
 depends-on = ["config", "fl", "demangle", "ui"]
