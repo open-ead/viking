@@ -36,6 +36,8 @@ pub fn run_check_all(
     mut file_list: fl::FileList,
     args: &Args,
 ) -> cu::Result<()> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L421
+    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/tools/check.rs#L470
     if args.check_object_ordering {
         let object_names: Vec<&String> = file_list
             .iter()
@@ -147,6 +149,8 @@ fn check_function(
     args: &Args,
     failed: &cu::Atomic<bool, bool>,
 ) -> cu::Result<bool> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L229
+    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/tools/check.rs#L245
     let mut passed = true;
     let check_result = check_match(
         config,
@@ -205,6 +209,8 @@ fn check_match(
     addr2line_ctx: Result<&elf::Addr2LineContext, &cu::Error>,
     args: &Args,
 ) -> cu::Result<CheckResult> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L229
+    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/tools/check.rs#L245
     let mut name = "";
     let mut decomp_fn = None;
     for label in function.label.names() {
@@ -328,6 +334,7 @@ fn check_placement(
     failed: &cu::Atomic<bool, bool>,
     args: &Args,
 ) -> cu::Result<()> {
+    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/tools/check.rs#L549
     let demangled_name = demangle::demangle_or_as_is(function.name());
     let location_info = checker
         .decomp_elf
@@ -415,6 +422,7 @@ fn check_mismatch_comment_imp(
     line: u32,
     function_symbol: &str,
 ) -> cu::Result<()> {
+    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/tools/check.rs#L811
     fn rfind_function_metadata_block<'a>(
         function_symbol: &str,
         content: &'a str,

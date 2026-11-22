@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use cu::pre::*;
 
 use crate::config::Config;
@@ -13,6 +11,8 @@ pub fn parse_abs_address(config: &Config, hex_value: &str) -> cu::Result<u64> {
 /// Parse an absolute address (offset + base address) to just the offset
 /// according to the base address in the config
 pub fn parse_abs_address_as_offset(config: &Config, hex_value: &str) -> cu::Result<u32> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L59
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L66
     let hex_value = hex_value.strip_prefix("0x").unwrap_or(hex_value);
     let hex = cu::check!(
         u64::from_str_radix(hex_value, 16),
@@ -32,36 +32,11 @@ pub fn parse_abs_address_as_offset(config: &Config, hex_value: &str) -> cu::Resu
 
 /// Parse an address as the offset (without the base address)
 pub fn parse_offset(hex_value: &str) -> cu::Result<u32> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L59
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L66
     let hex_value = hex_value.strip_prefix("0x").unwrap_or(hex_value);
     cu::check!(
         u32::from_str_radix(hex_value, 16),
         "invalid address: address must be in hex"
-    )
-}
-
-pub fn quote_yaml_string_if_needed(s: &str) -> Cow<'_, str> {
-    if is_safe_yaml_string(s) {
-        return s.into();
-    }
-    format!("\'{}\'", s.replace('\'', "''")).into()
-}
-
-/// If the string is parsed back as the same string when written as a plain scalar,
-/// including in flow context
-fn is_safe_yaml_string(s: &str) -> bool {
-    let mut chars = s.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !(first.is_ascii_alphabetic() || first == '_') {
-        return false;
-    }
-    if !chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '$' | '/' | '-')) {
-        return false;
-    }
-    // words that could be parsed as non-string
-    !matches!(
-        s.to_ascii_lowercase().as_str(),
-        "null" | "true" | "false" | "yes" | "no" | "on" | "off" | "y" | "n"
     )
 }

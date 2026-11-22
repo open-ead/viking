@@ -10,8 +10,10 @@ use rustc_hash::FxHashMap;
 use crate::demangle;
 use crate::fl;
 #[cfg(feature = "python")]
+use crate::pyinterop;
+use crate::pyinterop::pre::*;
+#[cfg(feature = "python")]
 use crate::python;
-use crate::python::pre::*;
 use crate::ui;
 
 /// List of all [`Info`]s
@@ -21,6 +23,7 @@ pub struct InfoList(Vec<Info>);
 impl InfoList {
     /// Create a map of offset to [`Info`]
     pub fn make_known_function_map(&self) -> FxHashMap<u32, fl::Info> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L221
         let mut known_functions =
             FxHashMap::with_capacity_and_hasher(self.len(), Default::default());
         for function in &self.0 {
@@ -30,6 +33,7 @@ impl InfoList {
     }
     /// Create a map of name (label) to [`Info`]
     pub fn make_known_function_name_map(&self) -> FxHashMap<&str, fl::Info> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L232
         let mut known_functions =
             FxHashMap::with_capacity_and_hasher(self.len(), Default::default());
 
@@ -56,6 +60,7 @@ impl InfoList {
         candidates: &[Info],
         description: &str,
     ) -> cu::Result<Info> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L71
         let match_word = if candidates.len() == 1 {
             "match"
         } else {
@@ -92,6 +97,7 @@ impl InfoList {
     ///
     /// If `prefer_exact` is true, it will return just the exact match if there is one.
     pub fn fuzzy_search(&self, name: &str, prefer_exact: bool) -> Vec<Info> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L257
         if prefer_exact {
             if let Some(exact_match) = self.find_exact(name) {
                 return vec![exact_match.clone()];
@@ -198,6 +204,7 @@ impl InfoData {
     /// has been worked on (i.e. is not `U`)
     #[inline(always)]
     pub fn is_decompiled(&self) -> bool {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L42
         !matches!(self.status, Status::NotDecompiled | Status::Library)
     }
     /// Get the name (first if multiple)
@@ -229,7 +236,7 @@ impl Info {
     /// Create a new empty `Info` with the given names
     #[new]
     fn py_new(state: &python::State, names: Vec<String>) -> PyResult<Self> {
-        let label = python::into_pyresult(AddressLabel::new(names))?;
+        let label = pyinterop::into_pyresult(AddressLabel::new(names))?;
         let info = InfoData {
             label,
             address_base: state.config.repo.address_base,
@@ -275,7 +282,7 @@ impl Info {
     /// empty.
     #[pyo3(name = "set_names")]
     fn py_set_names(&mut self, names: Vec<String>) -> PyResult<()> {
-        let label = python::into_pyresult(AddressLabel::new(names))?;
+        let label = pyinterop::into_pyresult(AddressLabel::new(names))?;
         self.data_mut().label = label;
         Ok(())
     }
@@ -405,6 +412,7 @@ impl Status {
     }
     /// Get descriptive string
     pub fn description(self) -> &'static str {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L21
         match self {
             Self::Matching => "matching",
             Self::NonMatchingMinor => "non-matching (minor)",
@@ -423,11 +431,11 @@ impl Status {
     /// Parse status string into enum
     #[pyo3(name = "from_name")]
     #[staticmethod]
-    fn py_from_name(s: &str) -> PyResult<Self> { python::into_pyresult(Self::from_name(s)) }
+    fn py_from_name(s: &str) -> PyResult<Self> { pyinterop::into_pyresult(Self::from_name(s)) }
     /// Parse status code into enum
     #[pyo3(name = "from_code")]
     #[staticmethod]
-    fn py_from_code(s: &str) -> PyResult<Self> { python::into_pyresult(Self::from_code(s)) }
+    fn py_from_code(s: &str) -> PyResult<Self> { pyinterop::into_pyresult(Self::from_code(s)) }
     /// Get the single-character code representation
     #[pyo3(name = "code")]
     fn py_code(&self) -> char { self.code() }

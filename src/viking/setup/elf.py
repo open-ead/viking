@@ -17,6 +17,8 @@ def convert_nso_to_elf(
     as defined in the config TOML (see `viking.core.ConfigRepo`)
     """
 
+    # REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/setup_common.py#L28
+
     ui.step(message)
     if not elf_out_path:
         config = get_config()
@@ -32,6 +34,9 @@ def apply_xdelta3_patch(
     input: Path, patch: Path, dest: Path, message: str = "applying patch..."
 ):
     """Apply `patch` to `input` and save the result to `dest`"""
+
+    # REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/setup_common.py#L56
+
     ui.step(message)
     try:
         subprocess.check_call(

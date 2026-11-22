@@ -53,6 +53,7 @@ pub fn write_file_list_csv_at(path: impl AsRef<Path>, info_list: &[fl::Info]) ->
     write_file_list_csv_at_imp(path.as_ref(), info_list)
 }
 fn write_file_list_csv_at_imp(path: &Path, info_list: &[fl::Info]) -> cu::Result<()> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L178
     let mut writer = CsvWriter::from_path(path)?;
     writer.write_record(CSV_HEADER)?;
     for function in info_list {
@@ -67,6 +68,7 @@ fn write_file_list_csv_at_imp(path: &Path, info_list: &[fl::Info]) -> cu::Result
 
 /// Returns a Vec of all functions that are listed in the specified CSV.
 fn load_csv_flat(config: &Config, path: &Path) -> cu::Result<(Vec<fl::Info>, usize)> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L140
     let mut reader = CsvReaderBuilder::new()
         .has_headers(false) // header is manually parsed
         .quoting(false)
@@ -104,6 +106,7 @@ fn load_csv_flat(config: &Config, path: &Path) -> cu::Result<(Vec<fl::Info>, usi
 }
 
 fn parse_csv_record(config: &Config, record: &CsvStringRecord) -> cu::Result<fl::Info> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L70
     cu::ensure!(record.len() == 4, "invalid record")?;
 
     let addr = fl::parse_abs_address_as_offset(config, &record[0])?;

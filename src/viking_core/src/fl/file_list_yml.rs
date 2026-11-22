@@ -7,8 +7,10 @@ use rustc_hash::FxHashSet;
 use crate::config::{self, Config};
 use crate::fl;
 #[cfg(feature = "python")]
+use crate::pyinterop;
+use crate::pyinterop::pre::*;
+#[cfg(feature = "python")]
 use crate::python;
-use crate::python::pre::*;
 
 /// Load the file list from a path, assuming YAML format
 #[inline(always)]
@@ -16,6 +18,7 @@ pub fn load_file_list_yml_at(config: &Config, path: impl AsRef<Path>) -> cu::Res
     load_file_list_yml_at_imp(config, path.as_ref())
 }
 fn load_file_list_yml_at_imp(config: &Config, path: &Path) -> cu::Result<FileList> {
+    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/functions.rs#L96
     #[derive(Deserialize)]
     #[serde(transparent)]
     struct FileListWrapper(#[serde(with = "tuple_vec_map")] Vec<(String, Object)>);
@@ -105,6 +108,7 @@ impl FileList {
         Ok(())
     }
     fn check_names(&self, num_names: usize) -> cu::Result<()> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L97
         let mut seen_names = if num_names == 0 {
             Default::default()
         } else {
@@ -133,6 +137,7 @@ impl FileList {
     }
 
     fn check_for_overlapping_functions(&self) -> cu::Result<()> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L121
         for pair in self.info_list.windows(2) {
             let first = &pair[0];
             let second = &pair[1];
@@ -243,7 +248,7 @@ impl FileList {
 impl FileList {
     #[new]
     fn py_new(state: &python::State, data: Vec<(String, Object)>) -> PyResult<Self> {
-        python::into_pyresult(Self::new(&state.config, data))
+        pyinterop::into_pyresult(Self::new(&state.config, data))
     }
     /// Number of objects
     #[getter(objects_len)]
@@ -287,7 +292,7 @@ impl FileList {
     /// The returned object is a copy. To modify the FileList, use the mutater methods (`set_*` and `update_*`)
     #[pyo3(name = "ith_object")]
     fn py_ith_object(&self, index: usize) -> PyResult<(String, Object)> {
-        let o = python::into_pyresult(cu::check!(
+        let o = pyinterop::into_pyresult(cu::check!(
             self.get(index),
             "index out of bound for the list of objects: index={index}, length={}",
             self.len()
@@ -316,7 +321,7 @@ impl FileList {
     #[pyo3(name = "set_ith_object")]
     fn py_set_ith_object(&mut self, index: usize, object: Object) -> PyResult<()> {
         let len = self.len();
-        let o = python::into_pyresult(cu::check!(
+        let o = pyinterop::into_pyresult(cu::check!(
             self.data.get_mut(index),
             "index out of bound for the list of objects: index={index}, length={len}"
         ))?;
@@ -329,7 +334,7 @@ impl FileList {
     #[pyo3(name = "set_ith_object_name")]
     fn py_set_ith_object_name(&mut self, index: usize, name: &str) -> PyResult<()> {
         let len = self.len();
-        let o = python::into_pyresult(cu::check!(
+        let o = pyinterop::into_pyresult(cu::check!(
             self.data.get_mut(index),
             "index out of bound for the list of objects: index={index}, length={len}"
         ))?;
@@ -340,7 +345,7 @@ impl FileList {
     /// Set the data of the object with the given name
     #[pyo3(name = "set_object_by_name")]
     fn py_set_object_by_name(&mut self, name: &str, object: Object) -> PyResult<()> {
-        let (_, obj) = python::into_pyresult(cu::check!(
+        let (_, obj) = pyinterop::into_pyresult(cu::check!(
             self.object_from_name_mut(name),
             "cannot find object with name {name:?}"
         ))?;
@@ -352,7 +357,7 @@ impl FileList {
     /// Set the new name of the object with the given name
     #[pyo3(name = "rename_object")]
     fn py_rename_object(&mut self, name: &str, new_name: &str) -> PyResult<()> {
-        let (name, _) = python::into_pyresult(cu::check!(
+        let (name, _) = pyinterop::into_pyresult(cu::check!(
             self.object_from_name_mut(name),
             "cannot find object with name {name:?}"
         ))?;
@@ -364,11 +369,8 @@ impl FileList {
     /// with the offset.
     #[pyo3(name = "update_at_offset")]
     fn py_update_at_offset(&mut self, offset: u32, data: fl::Info) -> PyResult<()> {
-        python::into_pyresult(self.update(offset, |x| *x = data.clone_data()))
+        pyinterop::into_pyresult(self.update(offset, |x| *x = data.clone_data()))
     }
-
-    // #[pyo3(name = "")
-    // fn py_ith_object()
 }
 
 /// One object entry in a YAML file list
@@ -397,7 +399,7 @@ impl Object {
     /// Create a new object entry. The input data is not validated.
     #[new] fn py_new(text_section: Vec<fl::Info>) -> PyResult<Self> {
         if text_section.is_empty() {
-            return python::into_pyresult(Err(cu::fmterr!("object entry must contain at least one function")));
+            return pyinterop::into_pyresult(Err(cu::fmterr!("object entry must contain at least one function")));
         }
         Ok(Self { text_section })
     }
@@ -418,7 +420,7 @@ impl Object {
     #[pyo3(name = "set_text_section")]
     fn py_set_text_section(&mut self, mut text_section: Vec<fl::Info>) -> PyResult<()> {
         if text_section.is_empty() {
-            return python::into_pyresult(Err(cu::fmterr!("object entry must contain at least one function")));
+            return pyinterop::into_pyresult(Err(cu::fmterr!("object entry must contain at least one function")));
         }
         text_section.sort_by_key(|x| x.offset);
         self.text_section = text_section;

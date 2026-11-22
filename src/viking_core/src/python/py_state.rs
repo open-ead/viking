@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
 use crate::config::Config;
-use crate::python;
+use crate::pyinterop;
 
 /// Global (per-module) state of the module
 ///
@@ -15,7 +15,7 @@ pub struct RustState {
     pub config: Config,
 }
 
-python::make_handle_class! {
+pyinterop::make_handle_class! {
     /// Global (per-module) state of the Rust module
     #[handle(RustState, module = "viking._core")]
     pub struct State;

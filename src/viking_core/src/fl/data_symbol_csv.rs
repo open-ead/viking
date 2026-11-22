@@ -13,6 +13,7 @@ pub fn load_data_symbols_at(
     config: &Config,
     paths: impl IntoIterator<Item = impl AsRef<Path>>,
 ) -> cu::Result<DataSymbolMap> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs#L34
     let mut symbols = vec![];
     for path in paths {
         let path = path.as_ref();
@@ -76,7 +77,10 @@ impl DataSymbolMap {
 
     /// If addr is part of a known data symbol, this function returns the corresponding symbol.
     pub fn get(&self, addr: u64) -> Option<&DataSymbol> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs#L68
+
         // FIXME: replace with std binary_search
+
         // Perform a binary search since `symbols` is sorted.
         let mut a: isize = 0;
         let mut b: isize = self.symbols.len() as isize - 1;

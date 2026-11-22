@@ -9,6 +9,9 @@ from ..core import get_config
 
 def install_clang(version: str):
     """Set up a specific version of Clang in the toolchain install path (`repo.toolchain_install_path` in the config)"""
+
+    # REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/setup_common.py#L63
+
     config = get_config()
     compiler_dir = config.repo.toolchain_install_path / ("clang-" + version)
     if compiler_dir.is_dir():

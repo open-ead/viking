@@ -6,6 +6,8 @@ use crate::config::Config;
 use crate::python;
 use crate::ui;
 
+// REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L110
+
 /// Checks if the compiled bytecode of a function matches the assembly found within the game elf. If not, show the differences between them.
 /// If no function name is provided, all functions within the repository function list will be checked.
 #[derive(Default, Clone, Debug, PartialEq, Parser, Deref)]

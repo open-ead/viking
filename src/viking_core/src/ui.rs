@@ -4,7 +4,7 @@ use std::sync::Once;
 use colored::*;
 
 use crate::demangle;
-use crate::python::pre::*;
+use crate::pyinterop::pre::*;
 
 /// Print a message using the step formatting
 #[pyfunction]
@@ -16,6 +16,7 @@ pub use viking_macro::step;
 /// Print a message using the note formatting
 #[pyfunction]
 pub fn print_note(msg: &str) {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L11
     eprintln!("{}{}{}", "note".bold().cyan(), ": ".bold(), msg.bold())
 }
 pub use viking_macro::note;
@@ -56,6 +57,7 @@ pub fn print_warning_with_detail(msg: &str, detail: &str) {
 }
 
 fn print_warning_locked(lock: &mut StderrLock, msg: &str) {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L15
     writeln!(
         lock,
         "{}{}{}",
@@ -93,6 +95,7 @@ pub fn print_error_with_detail(msg: &str, detail: &str) {
 }
 
 fn print_error_locked(lock: &mut StderrLock, msg: &str) {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L25
     writeln!(
         lock,
         "{}{}{}",
@@ -104,6 +107,7 @@ fn print_error_locked(lock: &mut StderrLock, msg: &str) {
 }
 
 fn print_detail_locked(lock: &mut StderrLock, msg: &str) {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L52
     writeln!(
         lock,
         "{}\n",
@@ -115,6 +119,7 @@ fn print_detail_locked(lock: &mut StderrLock, msg: &str) {
 /// Format a mangled symbol name for display. Show as `{demangled} ({mangled})`
 #[pyfunction]
 pub fn format_symbol_name(name: &str) -> String {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L36
     match demangle::demangle_str(name) {
         Ok(demangled) => format!("{} ({})", demangled.blue(), name.blue().dimmed()),
         Err(_) => name.blue().to_string(),
@@ -124,12 +129,14 @@ pub fn format_symbol_name(name: &str) -> String {
 /// Format an address for display
 #[pyfunction]
 pub fn format_address(addr: u64) -> String {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L42
     format!("{addr:#x}").green().to_string()
 }
 
 /// Clear the terminal
 #[pyfunction]
 pub fn clear_terminal() {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L62
     crossterm::execute!(
         std::io::stdout(),
         crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
@@ -144,6 +151,7 @@ pub fn interactive_select<'a, T, FnFormat: Fn(&T) -> String>(
     options: &'a [T],
     fn_format: FnFormat,
 ) -> cu::Result<Option<&'a T>> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L71
     match options {
         [] => return Ok(None),
         [_only_match] => return Ok(Some(&options[0])),
@@ -181,6 +189,7 @@ pub fn confirm(prompt: &str, default_value: bool, help: Option<&str>) -> cu::Res
 }
 
 fn init_inquire() {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/ui.rs#L56
     static INIT: Once = Once::new();
     INIT.call_once(|| {
         let mut config = inquire::ui::RenderConfig::default();

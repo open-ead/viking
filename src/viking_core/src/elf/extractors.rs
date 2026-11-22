@@ -13,6 +13,7 @@ use crate::fl;
 
 impl elf::OwnedElf {
     pub fn build_glob_data_table(&self) -> cu::Result<elf::GlobDataTable> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L277
         let section = &self.dynrelas;
         let section_hdr = self.find_section(".rela.dyn")?;
         // The corresponding symbol table.
@@ -47,6 +48,7 @@ impl elf::OwnedElf {
     }
 
     pub fn get_plt_functions(&self) -> cu::Result<Vec<fl::Info>> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L312
         let plt_section = self.find_section(".plt")?;
         let mut functions = Vec::with_capacity(self.pltrelocs.len());
 
@@ -75,6 +77,7 @@ impl elf::OwnedElf {
     }
 
     pub fn find_function_symbol_by_name(&self, name: &str) -> cu::Result<Sym> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L188
         let strtab = self.symbol_string_table()?;
 
         for symbol in self.iter_useful_syms() {
@@ -108,6 +111,7 @@ impl elf::OwnedElf {
         cu::bail!("couldn't find symbol string table")
     }
     pub fn make_symbol_map_by_name(&self) -> cu::Result<elf::SymbolTableByName<'_>> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L199
         let mut map =
             HashMap::with_capacity_and_hasher(self.iter_useful_syms().count(), Default::default());
 
@@ -122,6 +126,7 @@ impl elf::OwnedElf {
 
     #[allow(unused)] // was here before the rewrite
     pub fn make_symbol_map_by_addr(&self) -> elf::SymbolTableByAddr {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L214
         let mut map = elf::SymbolTableByAddr::with_capacity_and_hasher(
             self.iter_useful_syms().count(),
             Default::default(),
@@ -133,6 +138,7 @@ impl elf::OwnedElf {
     }
 
     pub fn make_addr_to_name_map(&self) -> cu::Result<elf::AddrToNameMap<'_>> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L225
         let mut map = elf::AddrToNameMap::with_capacity_and_hasher(
             self.iter_useful_syms().count(),
             Default::default(),
@@ -150,11 +156,13 @@ impl elf::OwnedElf {
         self.syms.iter().filter(elf::is_symbol_useful)
     }
     pub fn get_elf_bytes(&self, addr: u64, size: u64) -> cu::Result<&[u8]> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L352
         let offset = self.get_offset_in_file(addr)?;
         let size = size as usize;
         Ok(&self.as_owner().1[offset..(offset + size)])
     }
     pub fn get_offset_in_file(&self, addr: u64) -> cu::Result<usize> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L338
         let addr = addr as usize;
         for segment in self.program_headers.iter() {
             if segment.p_type != PT_LOAD {
@@ -168,6 +176,7 @@ impl elf::OwnedElf {
         cu::bail!("{:#x} doesn't belong to any segment", addr)
     }
     pub fn plt_addr_to_name(&self, addr: u64) -> Option<&str> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L424
         let plt_section = self.find_section(".plt").ok()?;
         let reloc_idx = (addr - plt_section.sh_addr) / 16 - 2;
         let reloc = self.pltrelocs.get(reloc_idx as usize)?;
@@ -177,8 +186,9 @@ impl elf::OwnedElf {
         Some(name)
     }
 
+    /// Find plt relocation for given function name
     pub fn plt_name_to_addr(&self, func_name: &str) -> Option<u64> {
-        // find plt relocation for given function name
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L410
         let reloc_idx = self.pltrelocs.iter().position(|reloc| {
             self.dynsyms
                 .get(reloc.r_sym)
@@ -191,6 +201,7 @@ impl elf::OwnedElf {
     }
 
     pub fn find_section(&self, name: &str) -> cu::Result<&'_ SectionHeader> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L254
         cu::check!(
             self.section_headers
                 .iter()
@@ -200,6 +211,7 @@ impl elf::OwnedElf {
     }
 
     fn parse_symtab<'a>(&'a self, shdr: &'a SectionHeader) -> cu::Result<Symtab<'a>> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L240
         let bytes = &self.as_owner().1;
         let size = shdr.sh_entsize;
         let count = shdr.sh_size.checked_div(size).unwrap_or(0);
@@ -216,6 +228,7 @@ impl elf::OwnedElf {
         &'a self,
         shdr: &'a SectionHeader,
     ) -> cu::Result<&'a SectionHeader> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L261
         cu::check!(
             self.section_headers.get(shdr.sh_link as usize),
             "could not get linked section"
@@ -226,11 +239,13 @@ impl elf::OwnedElf {
         symbols: &elf::SymbolTableByName,
         name: &str,
     ) -> cu::Result<elf::Function<'a>> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L366
         let symbol = cu::check!(symbols.get(&name), "unknown function: {name}")?;
         self.get_function(symbol.st_value, symbol.st_size)
     }
 
     pub fn get_function(&self, addr: u64, size: u64) -> cu::Result<elf::Function<'_>> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L358
         Ok(elf::Function {
             owner_elf: self,
             addr,
@@ -238,6 +253,7 @@ impl elf::OwnedElf {
         })
     }
     pub fn create_addr2line_ctx(&self) -> cu::Result<elf::Addr2LineContext> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L380
         let data: &[u8] = &self.as_owner().1;
         let file = addr2line::object::read::File::parse(data)?;
         Ok(addr2line::Context::new(&file)?)
@@ -248,6 +264,7 @@ impl elf::OwnedElf {
         ctx: &elf::Addr2LineContext,
         sym: &str,
     ) -> cu::Result<(String, u32)> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L386
         let symbol = self.find_function_symbol_by_name(sym)?;
 
         let LookupResult::Output(frames) = ctx.find_frames(symbol.st_value) else {

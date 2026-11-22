@@ -32,6 +32,7 @@ pub struct Function<'a> {
 impl Function<'_> {
     #[inline]
     pub fn get_addr_range(&self) -> Range<u64> {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L48
         self.addr..(self.addr + self.code.len() as u64)
     }
 }
@@ -40,6 +41,7 @@ impl Function<'_> {
 pub struct SymbolTableByName<'a>(HashMap<&'a str, Sym>);
 impl<'a> SymbolTableByName<'a> {
     pub fn hydrate_data_symbols(&self, map: &fl::DataSymbolMap) -> fl::DataSymbolMap {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/checks.rs#L34
         let symbols = map.as_slice().iter().filter_map(|data_sym| {
             self.get(data_sym.name.as_str()).map(|sym| fl::DataSymbol {
                 addr: data_sym.addr,
@@ -52,6 +54,7 @@ impl<'a> SymbolTableByName<'a> {
 
     /// Filter a list of functions to only functions that appear in the symbol table
     pub fn filter_functions(&self, info_list: &fl::InfoList) -> fl::InfoList {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L282
         fl::InfoList::new(
             info_list
                 .iter()
@@ -130,6 +133,7 @@ pub struct SymbolStringTable<'elf> {
 
 impl<'elf> SymbolStringTable<'elf> {
     pub fn get_string(&self, offset: usize) -> &'elf str {
+        // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L166
         unsafe {
             std::str::from_utf8_unchecked(
                 CStr::from_ptr(self.bytes[offset..self.bytes.len()].as_ptr() as *const c_char)

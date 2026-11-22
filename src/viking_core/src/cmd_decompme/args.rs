@@ -1,5 +1,7 @@
 use cu::pre::*;
 
+// REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/decompme.rs#L18
+
 /// Upload a function to decomp.me.
 #[derive(Debug, clap::Parser)]
 #[clap(bin_name = "decompme")]

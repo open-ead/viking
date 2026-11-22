@@ -28,6 +28,7 @@ pub fn load_decomp_elf(config: &Config, version: Option<&str>) -> cu::Result<elf
 
 #[cu::context("failed to load elf from path: '{}'", path.display())]
 pub fn load_elf(path: &Path, address_base: u64) -> cu::Result<elf::OwnedElf> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L118
     let file = File::open(path)?;
     let mmap = unsafe { MmapOptions::new().map(&file)? };
 
@@ -48,6 +49,7 @@ pub fn load_elf(path: &Path, address_base: u64) -> cu::Result<elf::OwnedElf> {
 /// *Warning*: In particular, `strtab`, `soname` and `libraries` are **not** parsed.
 #[cu::context("elf parsing failed")]
 fn parse_elf_faster(bytes: &[u8]) -> cu::Result<Elf<'_>> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/elf.rs#L63
     let header = Elf::parse_header(bytes)?;
     let mut elf = Elf::lazy_parse(header)?;
     let ctx = elf::make_goblin_ctx();
