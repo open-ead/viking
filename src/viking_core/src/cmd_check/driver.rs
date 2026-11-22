@@ -6,7 +6,7 @@ use crate::fl;
 
 use crate::cmd_check::{Args, FunctionChecker, check_all, check_single};
 
-pub fn run(config: &Config, args: &Args) -> cu::Result<()> {
+pub fn run(config: &Config, args: Args) -> cu::Result<()> {
     // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/check.rs#L50
     let version = args.version();
 
@@ -60,9 +60,9 @@ pub fn run(config: &Config, args: &Args) -> cu::Result<()> {
     )?;
 
     if let Some(func) = &args.function {
-        check_single::run_check_single(config, &checker, &all_functions, file_list, func, args)?;
+        check_single::run_check_single(config, &checker, &all_functions, file_list, func, &args)?;
     } else {
-        check_all::run_check_all(config, version, &checker, file_list, args)?;
+        check_all::run_check_all(config, version, &checker, file_list, &args)?;
     }
 
     Ok(())

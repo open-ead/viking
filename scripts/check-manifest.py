@@ -9,12 +9,16 @@ and Cargo accepts TOML 1.1.
 """
 
 import sys
+from pathlib import Path
 from typing import Any
 
 import tomli
 
 # pyright: reportAny=false
 
+
+ROOT = Path(__file__).resolve().parent.parent
+CARGO_TOML = ROOT / "src" / "viking_core" / "Cargo.toml"
 
 def load(path: str) -> dict[str, Any]:
     with open(path, "rb") as f:
@@ -33,12 +37,12 @@ def check_version() -> bool:
         print("  update both to the same version", file=sys.stderr)
         return False
 
-    print(f"version check: ok ({cargo_version})")
+    print(f"==> version check: ok ({cargo_version})")
     return True
 
 
 def check_default_features() -> bool:
-    path = "src/viking_core/Cargo.toml"
+    path = str(CARGO_TOML)
     default = load(path).get("features", {}).get("default")
 
     if default != []:
@@ -54,7 +58,7 @@ def check_default_features() -> bool:
         )
         return False
 
-    print("default feature check: ok")
+    print("==> default feature check: ok")
     return True
 
 
