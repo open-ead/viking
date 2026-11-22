@@ -1,5 +1,7 @@
 use cu::pre::*;
 
+use crate::config::Config;
+
 // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/tools/list_symbols.rs#L13
 
 /// Print symbols in the output ELF.
@@ -28,10 +30,16 @@ pub struct Args {
 
 /// Parse the args. If None is returned, the help or error message
 /// has already been printed
-pub fn parse_args(cli_args: &[String]) -> Option<Args> {
+pub fn parse_args(config: &Config, cli_args: &[String]) -> Option<Args> {
     // need to put a arg[0] as the placeholder for the binary
-    cu::cli::try_parse(
+    let mut args: Args = cu::cli::try_parse(
         std::iter::once("listsym").chain(cli_args.iter().map(|x| x.as_str())),
         true,
-    )
+    )?;
+
+    if args.version.is_none() {
+        args.version = config.repo.default_version.clone();
+    }
+
+    Some(args)
 }
