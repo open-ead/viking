@@ -1,9 +1,9 @@
-from . import _core_cmd_check as _core_cmd_check, _core_cmd_decompme as _core_cmd_decompme, _core_cmd_listsym as _core_cmd_listsym, _core_fl as _core_fl, _core_ui as _core_ui
+from . import _core_cmd_check as _core_cmd_check, _core_cmd_decompme as _core_cmd_decompme, _core_cmd_listsym as _core_cmd_listsym, _core_cmd_progress as _core_cmd_progress, _core_fl as _core_fl, _core_ui as _core_ui
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final, final
 
-__all__ = ["Config", "ConfigCheckMismatch", "ConfigCheckMismatchAsmDiffer", "ConfigDecompMe", "ConfigDecompMeTarget", "ConfigRepo", "PyCmd", "State", "demangle_or_as_is", "find_tool", "fini_core_state", "init_core_state", "parse_json_command", "raw_or_demangled_contains", "_core_cmd_check", "_core_cmd_decompme", "_core_cmd_listsym", "_core_fl", "_core_ui"]
+__all__ = ["Config", "ConfigCheckMismatch", "ConfigCheckMismatchAsmDiffer", "ConfigDecompMe", "ConfigDecompMeTarget", "ConfigRepo", "PyCmd", "State", "demangle_or_as_is", "find_tool", "fini_core_state", "get_top_namespace", "init_core_state", "parse_json_command", "raw_or_demangled_contains", "_core_cmd_check", "_core_cmd_decompme", "_core_cmd_listsym", "_core_cmd_progress", "_core_fl", "_core_ui"]
 
 @final
 class Config:
@@ -234,6 +234,8 @@ def demangle_or_as_is(name: str) -> str:
 def find_tool(state: State, tool: str) -> Path: ...
 def fini_core_state(state: State) -> None:
     """Finalize the Rust extension module"""
+def get_top_namespace(function_name: str) -> str | None:
+    """Get the top-level namespace of a (possibly mangled) function name."""
 def init_core_state(sys_executable: str, sys_argv0: str) -> State:
     """Initialize the Rust extension module"""
 def parse_json_command(s: str) -> PyCmd: ...

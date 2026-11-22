@@ -4,6 +4,9 @@ use cpp_demangle::Symbol;
 
 use crate::pyinterop::pre::*;
 
+mod top_namespace;
+pub use top_namespace::*;
+
 /// Demangle a C++ symbol.
 #[inline(always)]
 pub fn demangle_str(name: &str) -> cu::Result<String> {
