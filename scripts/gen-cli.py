@@ -12,7 +12,9 @@ Steps to add a new CLI command:
    paragraph is the short description (when listing the commands, or calling `viking <command> -h`).
    The full text is the long description when calling `viking <command> --help`.
 4. Run `task install` again to update the description everywhere.
-5. Implement the command in src/viking_core/src/cmd_<name>/driver.rs
+
+Then, run `task run -- --help`, and your new command should be listed.
+Now you can implement the command in src/viking_core/src/cmd_<name>/driver.rs
 """
 
 COMMANDS = [

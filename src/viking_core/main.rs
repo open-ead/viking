@@ -81,7 +81,7 @@ fn print_multicall_help() {
     eprintln!("The command that runs depends on the executable name, or call a command directly: viking COMMAND [ARGS...]");
     eprintln!();
     eprintln!("Available commands:");
-    eprintln!("  check       Checks if the compiled bytecode of a function matches the assembly found within the game elf. If not, show the differences between them. If no function name is provided, all functions within the repository function list will be checked.");
+    eprintln!("  check       Checks if the compiled bytecode of a function matches the assembly found within the game elf.");
     eprintln!("  decompme    Upload a function to decomp.me.");
     eprintln!("  listsym     Print symbols in the output ELF.");
 }

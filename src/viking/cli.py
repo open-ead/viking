@@ -91,7 +91,7 @@ def _commands():
 
 
 def check(args: list[str]) -> typing.NoReturn:
-    """Checks if the compiled bytecode of a function matches the assembly found within the game elf. If not, show the differences between them. If no function name is provided, all functions within the repository function list will be checked."""
+    """Checks if the compiled bytecode of a function matches the assembly found within the game elf."""
     from ._core import _core_cmd_check
     from .core import core_state
 
