@@ -15,25 +15,19 @@ use crate::python;
 /// Load the file list from a path, assuming YAML format
 #[inline(always)]
 pub fn load_file_list_yml_at(config: &Config, path: impl AsRef<Path>) -> cu::Result<FileList> {
-    load_file_list_yml_at_imp(config, path.as_ref())
-}
-fn load_file_list_yml_at_imp(config: &Config, path: &Path) -> cu::Result<FileList> {
-    // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/functions.rs#L96
-
-    let reader = cu::fs::reader(path)?;
-    let FileListWrapper(data) = yaml::read(reader)?;
-    FileList::new(config, data)
+    let bytes = cu::fs::read(path)?;
+    parse_file_list_imp(config, &bytes)
 }
 
 /// Parse YAML file list from string
+#[inline(always)]
 pub fn parse_file_list_yml(config: &Config, content: &str) -> cu::Result<FileList> {
-    let FileListWrapper(data) = yaml::parse(content)?;
-    FileList::new(config, data)
+    parse_file_list_imp(config, content.as_bytes())
 }
-
-#[derive(Deserialize)]
-#[serde(transparent)]
-struct FileListWrapper(#[serde(with = "tuple_vec_map")] Vec<(String, Object)>);
+fn parse_file_list_imp(config: &Config, bytes: &[u8]) -> cu::Result<FileList> {
+    let objects = fl::parse_file_list_yml_objects(bytes)?;
+    FileList::new(config, objects)
+}
 
 /// Write the file list data to `path`, assuming YAML format.
 ///
@@ -56,7 +50,7 @@ fn write_file_list_yml_at_imp(path: &Path, file_list_data: &[(String, Object)]) 
 }
 
 /// The YAML File List structure
-#[derive(Debug, Clone, Deref)]
+#[derive(Debug, Clone, Deref, PartialEq, Eq)]
 #[pyclass(from_py_object)]
 pub struct FileList {
     #[deref]
@@ -382,7 +376,7 @@ impl FileList {
 }
 
 /// One object entry in a YAML file list
-#[derive(Deserialize, Clone, Debug, Display)]
+#[derive(Deserialize, Clone, Debug, Display, PartialEq, Eq)]
 #[display("<Object @ offset=0x{:08x}>", self.offset())]
 #[pyclass(from_py_object, str)]
 pub struct Object {

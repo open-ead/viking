@@ -34,4 +34,4 @@ pub use util::{parse_abs_address, parse_abs_address_as_offset, parse_offset};
 
 /// file list serialization/deserialization implementation details
 mod serde_impl;
-use serde_impl::quote_yaml_string_if_needed;
+use serde_impl::*;

@@ -217,10 +217,13 @@ fn check_match(
         let f = checker
             .decomp_elf
             .get_function_by_name(checker.decomp_symtab, label);
-        if f.is_ok() || decomp_fn.is_none() {
+        let ok = f.is_ok();
+        if ok || decomp_fn.is_none() {
             name = label;
             decomp_fn = Some(f);
-            break;
+            if ok {
+                break;
+            }
         }
     }
 
