@@ -111,6 +111,23 @@ impl<'de> Deserialize<'de> for fl::AddressLabel {
     }
 }
 
+impl<T: Serialize> Serialize for fl::StatusMap<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeMap;
+        // serialize in Status::all() order for stable output
+        let mut map = serializer.serialize_map(Some(self.len()))?;
+        for status in fl::Status::all() {
+            if let Some(value) = self.get(status) {
+                map.serialize_entry(status, value)?;
+            }
+        }
+        map.end()
+    }
+}
+
 pub fn quote_yaml_string_if_needed(s: &str) -> Cow<'_, str> {
     if is_safe_yaml_string(s) {
         return s.into();

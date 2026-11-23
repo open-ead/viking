@@ -95,6 +95,14 @@ mod _core {
             pyinterop::into_pyresult(crate::fl::load_file_list_yml_at(&state.config, path))
         }
         #[pyfunction]
+        fn parse_file_list_csv(state: State, content: &str) -> PyResult<FileList> {
+            pyinterop::into_pyresult(crate::fl::parse_file_list_csv(&state.config, content))
+        }
+        #[pyfunction]
+        fn parse_file_list_yml(state: State, content: &str) -> PyResult<FileList> {
+            pyinterop::into_pyresult(crate::fl::parse_file_list_yml(&state.config, content))
+        }
+        #[pyfunction]
         fn write_file_list_csv(
             state: State,
             file_list: &mut FileList,
@@ -158,6 +166,10 @@ mod _core {
             crate::fl::is_csv(&state.config, version)
         }
         #[pyfunction]
+        fn is_csv_path(path: &str) -> bool {
+            crate::fl::is_csv_path(path)
+        }
+        #[pyfunction]
         fn parse_offset(hex_value: &str) -> PyResult<u32> {
             pyinterop::into_pyresult(crate::fl::parse_offset(hex_value))
         }
@@ -171,6 +183,25 @@ mod _core {
         #[pyfunction]
         fn parse_abs_address(state: State, hex_value: &str) -> PyResult<u64> {
             pyinterop::into_pyresult(crate::fl::parse_abs_address(&state.config, hex_value))
+        }
+    }
+
+    // ======= git =======
+    #[pymodule]
+    mod _core_git {
+        use super::*;
+
+        #[pyfunction]
+        fn read_utf8_file_at_revision(state: State, path: &str, rev: &str) -> PyResult<String> {
+            pyinterop::into_pyresult(crate::git::read_utf8_file_at_revision(
+                &state.config,
+                path,
+                rev,
+            ))
+        }
+        #[pyfunction]
+        fn read_file_at_revision(state: State, path: &str, rev: &str) -> PyResult<Vec<u8>> {
+            pyinterop::into_pyresult(crate::git::read_file_at_revision(&state.config, path, rev))
         }
     }
 

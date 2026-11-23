@@ -6,6 +6,7 @@ for more information.
 - `viking.cli`: CLI entry points
 - `viking.core`: Core functionality
 - `viking.ui`: UI helper functions
+- `viking.git`: Git repo utilities
 - `viking.fl`: YAML File List
 - `viking.setup`: Helpers for setting up decomp projects
 """

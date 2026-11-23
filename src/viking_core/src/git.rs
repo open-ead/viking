@@ -11,7 +11,11 @@ use crate::ui;
 ///
 /// The path must be within the repo and tracked by Git
 #[inline(always)]
-pub fn read_utf8_file_at_revision(config: &Config, path: impl AsRef<Path>, rev: &str) -> cu::Result<String> {
+pub fn read_utf8_file_at_revision(
+    config: &Config,
+    path: impl AsRef<Path>,
+    rev: &str,
+) -> cu::Result<String> {
     read_utf8_file_at_revision_imp(config, path.as_ref(), rev)
 }
 
@@ -29,7 +33,11 @@ fn read_utf8_file_at_revision_imp(config: &Config, path: &Path, rev: &str) -> cu
 ///
 /// The path must be within the repo and tracked by Git
 #[inline(always)]
-pub fn read_file_at_revision(config: &Config, path: impl AsRef<Path>, rev: &str) -> cu::Result<Vec<u8>> {
+pub fn read_file_at_revision(
+    config: &Config,
+    path: impl AsRef<Path>,
+    rev: &str,
+) -> cu::Result<Vec<u8>> {
     read_file_at_revision_imp(config, path.as_ref(), rev)
 }
 
@@ -42,11 +50,15 @@ fn read_file_at_revision_imp(config: &Config, path: &Path, rev: &str) -> cu::Res
         Cow::Owned(path.normalize()?)
     };
     if !abs_path.starts_with(&config.repo.root_path) {
-        cu::bail!("cannot read file from git that is not in the repo: {}", path.display());
+        cu::bail!(
+            "cannot read file from git that is not in the repo: {}",
+            path.display()
+        );
     }
-    let rel_path= abs_path.try_to_rel_from(&config.repo.root_path);
-    let rel_path_str = rel_path .as_utf8()?;
-    let output = Command::new("git").current_dir(&config.repo.root_path)
+    let rel_path = abs_path.try_to_rel_from(&config.repo.root_path);
+    let rel_path_str = rel_path.as_utf8()?;
+    let output = Command::new("git")
+        .current_dir(&config.repo.root_path)
         .arg("show")
         .arg(format!("{rev}:{rel_path_str}"))
         .output()?;

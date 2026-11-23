@@ -1,7 +1,9 @@
+use std::io::Cursor;
 use std::path::Path;
 
 use csv::{
-    ReaderBuilder as CsvReaderBuilder, StringRecord as CsvStringRecord, Writer as CsvWriter,
+    Reader as CsvReader, ReaderBuilder as CsvReaderBuilder, StringRecord as CsvStringRecord,
+    Writer as CsvWriter,
 };
 use cu::pre::*;
 
@@ -18,8 +20,19 @@ pub fn load_file_list_csv_at(config: &Config, path: impl AsRef<Path>) -> cu::Res
 }
 fn load_file_list_csv_at_imp(config: &Config, path: &Path) -> cu::Result<fl::FileList> {
     let (info_list, num_names) = cu::check!(
-        load_csv_flat(config, path),
+        load_csv_at_path(config, path),
         "failed to load csv function list"
+    )?;
+    let file_list = fl::FileList::from_info_list(fl::InfoList::new(info_list));
+    file_list.validate(num_names)?;
+    Ok(file_list)
+}
+
+/// Parse CSV file list from string
+pub fn parse_file_list_csv(config: &Config, content: &str) -> cu::Result<fl::FileList> {
+    let (info_list, num_names) = cu::check!(
+        load_csv_from_str(config, content),
+        "failed to parse csv function list"
     )?;
     let file_list = fl::FileList::from_info_list(fl::InfoList::new(info_list));
     file_list.validate(num_names)?;
@@ -67,13 +80,29 @@ fn write_file_list_csv_at_imp(path: &Path, info_list: &[fl::Info]) -> cu::Result
 }
 
 /// Returns a Vec of all functions that are listed in the specified CSV.
-fn load_csv_flat(config: &Config, path: &Path) -> cu::Result<(Vec<fl::Info>, usize)> {
-    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L140
-    let mut reader = CsvReaderBuilder::new()
+fn load_csv_at_path(config: &Config, path: &Path) -> cu::Result<(Vec<fl::Info>, usize)> {
+    let reader = CsvReaderBuilder::new()
         .has_headers(false) // header is manually parsed
         .quoting(false)
         .from_path(path)?;
+    load_csv_imp(config, reader)
+}
 
+fn load_csv_from_str(config: &Config, content: &str) -> cu::Result<(Vec<fl::Info>, usize)> {
+    let reader = CsvReaderBuilder::new()
+        .has_headers(false) // header is manually parsed
+        .quoting(false)
+        .from_reader(Cursor::new(content));
+    load_csv_imp(config, reader)
+}
+
+// this might generate a lot of code but csv is deprecated and will probably be removed, so it's fine
+/// Returns a Vec of all functions that are listed in the specified CSV.
+fn load_csv_imp(
+    config: &Config,
+    mut reader: CsvReader<impl std::io::Read>,
+) -> cu::Result<(Vec<fl::Info>, usize)> {
+    // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L140
     // We build the result array manually without using csv iterators for performance reasons.
     let mut result = Vec::with_capacity(config::FUNCTION_LEN_UPPER_BOUND);
     let mut record = CsvStringRecord::new();

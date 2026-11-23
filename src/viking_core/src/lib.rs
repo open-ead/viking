@@ -72,6 +72,9 @@ pub mod fl;
 
 pub mod python;
 
+/// Git utils
+pub mod git;
+
 /// Configuration file
 pub mod config;
 
