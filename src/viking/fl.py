@@ -32,6 +32,18 @@ def load_file_list_yml_at(path: str | Path) -> FileList:
     return _core_fl.load_file_list_yml_at(core_state, str(path))
 
 
+def parse_file_list_csv(content: str) -> FileList:
+    """Parse the file list from a string, assuming legacy CSV format.
+
+    All symbols are put into an "UNKNOWN" object."""
+    return _core_fl.parse_file_list_csv(core_state, content)
+
+
+def parse_file_list_yml(content: str) -> FileList:
+    """Parse the file list from a string, assuming YAML format."""
+    return _core_fl.parse_file_list_yml(core_state, content)
+
+
 def write_file_list_csv(file_list: FileList, version: str | None = None) -> None:
     """Write the optionally-versioned file list according to the paths in
     the config (assuming CSV format).
@@ -90,6 +102,11 @@ Status = _core_fl.Status
 def is_csv(version: str | None = None) -> bool:
     """Check if the file list path is CSV"""
     return _core_fl.is_csv(core_state, version)
+
+
+def is_csv_path(path: str | Path) -> bool:
+    """Check if a path is CSV"""
+    return _core_fl.is_csv_path(str(path))
 
 
 def parse_offset(hex_value: str) -> int:

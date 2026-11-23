@@ -5,6 +5,7 @@ depends-on = [
     "cli",
     "fl",
     "demangle",
+    "git",
     "ui",
     "python",
     "config",
@@ -30,7 +31,7 @@ depends-on = ["config", "fl", "demangle", "elf", "ui"]
 depends-on = ["config", "fl", "demangle", "elf"]
 
 [layer.cmd_progress]
-depends-on = ["config", "fl"]
+depends-on = ["config", "fl", "demangle", "ui", "git"]
 
 [layer.elf]
 depends-on = ["config", "fl", "demangle", "ui"]
@@ -41,6 +42,9 @@ depends-on = ["config", "pyinterop", "python", "ui", "demangle"]
 [layer.python]
 depends-on = ["config", "pyinterop"]
 impl = ["pyinterop"]
+
+[layer.git]
+depends-on = ["config", "ui"]
 
 [layer.config]
 depends-on = ["pyinterop"]

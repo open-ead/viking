@@ -1,9 +1,9 @@
-from . import _core_cmd_check as _core_cmd_check, _core_cmd_decompme as _core_cmd_decompme, _core_cmd_listsym as _core_cmd_listsym, _core_cmd_progress as _core_cmd_progress, _core_fl as _core_fl, _core_ui as _core_ui
+from . import _core_cmd_check as _core_cmd_check, _core_cmd_decompme as _core_cmd_decompme, _core_cmd_listsym as _core_cmd_listsym, _core_cmd_progress as _core_cmd_progress, _core_fl as _core_fl, _core_git as _core_git, _core_ui as _core_ui
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final, final
 
-__all__ = ["Config", "ConfigCheckMismatch", "ConfigCheckMismatchAsmDiffer", "ConfigDecompMe", "ConfigDecompMeTarget", "ConfigRepo", "PyCmd", "State", "demangle_or_as_is", "find_tool", "fini_core_state", "get_top_namespace", "init_core_state", "parse_json_command", "raw_or_demangled_contains", "_core_cmd_check", "_core_cmd_decompme", "_core_cmd_listsym", "_core_cmd_progress", "_core_fl", "_core_ui"]
+__all__ = ["Config", "ConfigCheckMismatch", "ConfigCheckMismatchAsmDiffer", "ConfigDecompMe", "ConfigDecompMeTarget", "ConfigRepo", "PyCmd", "State", "demangle_or_as_is", "find_tool", "fini_core_state", "get_top_namespace", "init_core_state", "parse_json_command", "raw_or_demangled_contains", "_core_cmd_check", "_core_cmd_decompme", "_core_cmd_listsym", "_core_cmd_progress", "_core_fl", "_core_git", "_core_ui"]
 
 @final
 class Config:

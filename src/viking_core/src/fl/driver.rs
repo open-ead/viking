@@ -7,11 +7,13 @@ use crate::fl;
 
 /// Check if the versioned/versionless file list file is CSV
 pub fn is_csv(config: &Config, version: Option<&str>) -> bool {
-    config
-        .repo
-        .file_list_with_version(version)
-        .extension()
-        .is_some_and(|x| x == "csv")
+    is_csv_path(config.repo.file_list_with_version(version))
+}
+
+/// Check if a path has `.csv` extension
+#[inline(always)]
+pub fn is_csv_path(p: impl AsRef<Path>) -> bool {
+    p.as_ref().extension().is_some_and(|x| x == "csv")
 }
 
 /// Load the optionally-versioned file list according to the paths in the config.

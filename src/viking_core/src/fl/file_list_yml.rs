@@ -19,14 +19,21 @@ pub fn load_file_list_yml_at(config: &Config, path: impl AsRef<Path>) -> cu::Res
 }
 fn load_file_list_yml_at_imp(config: &Config, path: &Path) -> cu::Result<FileList> {
     // REFERENCE=https://github.com/LynxDev2/nx-decomp-tools/blob/50b88fd5b043bdfd3af49b15f1d70be295c0e9ca/viking/src/functions.rs#L96
-    #[derive(Deserialize)]
-    #[serde(transparent)]
-    struct FileListWrapper(#[serde(with = "tuple_vec_map")] Vec<(String, Object)>);
 
     let reader = cu::fs::reader(path)?;
     let FileListWrapper(data) = yaml::read(reader)?;
     FileList::new(config, data)
 }
+
+/// Parse YAML file list from string
+pub fn parse_file_list_yml(config: &Config, content: &str) -> cu::Result<FileList> {
+    let FileListWrapper(data) = yaml::parse(content)?;
+    FileList::new(config, data)
+}
+
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct FileListWrapper(#[serde(with = "tuple_vec_map")] Vec<(String, Object)>);
 
 /// Write the file list data to `path`, assuming YAML format.
 ///
@@ -107,6 +114,7 @@ impl FileList {
         )?;
         Ok(())
     }
+
     fn check_names(&self, num_names: usize) -> cu::Result<()> {
         // REFERENCE=https://github.com/open-ead/viking/blob/e0eae2f7f403befec6b60cb615f6680a6937d0c9/viking/src/functions.rs#L97
         let mut seen_names = if num_names == 0 {

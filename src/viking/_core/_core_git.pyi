@@ -1,0 +1,6 @@
+from . import State
+
+__all__ = ["read_file_at_revision", "read_utf8_file_at_revision"]
+
+def read_file_at_revision(state: State, path: str, rev: str) -> bytes: ...
+def read_utf8_file_at_revision(state: State, path: str, rev: str) -> str: ...

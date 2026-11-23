@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use colored::ColoredString;
 use colored::Colorize;
 use cu::pre::*;
 use itertools::Itertools;
@@ -416,11 +417,14 @@ impl Status {
     /// The string can be:
     /// - A status name (e.g. `NotDecompiled`),
     /// - A list of status char codes (e.g. `OUMmL`). Non-alphanumeric characters are ignored.
-    /// - Case-insensitive `all` that is parsed to all values
+    /// - Case-insensitive `all` that is parsed to all values or `none` that is parsed to no values
     pub fn parse_set(s: &str) -> cu::Result<FxHashSet<Self>> {
         let s = s.trim();
         if s.eq_ignore_ascii_case("all") {
             return Ok(Self::all().iter().copied().collect());
+        }
+        if s.eq_ignore_ascii_case("none") {
+            return Ok(Default::default());
         }
         if let Ok(x) = Self::from_name(s) {
             return Ok(std::iter::once(x).collect());
@@ -471,7 +475,31 @@ impl Status {
             Self::Library => "library function",
         }
     }
+
+    /// Get descriptive string with color code
+    pub fn colored_description(self) -> ColoredString {
+        self.color(self.description())
+    }
+
+    /// Color-code some text with the style of this status
+    pub fn color(self, text: &str) -> ColoredString {
+        match self {
+            Status::Matching => text.green().bold(),
+            Status::NonMatchingMinor => text.green(),
+            Status::NonMatchingMajor => text.yellow(),
+            Status::NotDecompiled => text.yellow().dimmed(),
+            Status::Wip => text.cyan(),
+            Status::Library => text.dimmed(),
+        }
+    }
 }
+
+/// A map of [`Status`] to type `T` that supports serialization with a consistent order.
+#[derive(Default, Clone, Debug, Deserialize, PartialEq, Deref, DerefMut, From, Into)]
+#[repr(transparent)]
+// see serde_impl.rs for serialization - the map is always serialized according
+// to the Status::all() order.
+pub struct StatusMap<T>(FxHashMap<Status, T>);
 
 #[rustfmt::skip]
 #[cfg(feature = "python")]
@@ -490,7 +518,7 @@ impl Status {
     /// The string can be:
     /// - A status name (e.g. `NotDecompiled`),
     /// - A list of status char codes (e.g. `OUMmL`). Non-alphanumeric characters are ignored.
-    /// - Case-insensitive `all` that is parsed to all values
+    /// - Case-insensitive `all` that is parsed to all values or `none` that is parsed to no values
     #[pyo3(name = "parse_set")]
     #[staticmethod]
     fn py_parse_set(s: &str) -> PyResult<FxHashSet<Self>> { pyinterop::into_pyresult(Self::parse_set(s)) }
