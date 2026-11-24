@@ -18,7 +18,7 @@ use crate::python;
 use crate::ui;
 
 /// List of all [`Info`]s
-#[derive(Clone, Default, Constructor, Into, Debug, Deref, DerefMut)]
+#[derive(Clone, Default, Constructor, Into, Debug, Deref, DerefMut, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct InfoList(Vec<Info>);
 impl InfoList {
@@ -128,7 +128,7 @@ impl InfoList {
     feature = "python",
     doc = "Clone-on-write handle to the underlying function info (on the Rust side)"
 )]
-#[derive(Default, Deserialize, Clone, Debug, Display)]
+#[derive(Default, Deserialize, Clone, Debug, Display, PartialEq, Eq)]
 #[display("{:#?}", self.0)]
 #[pyclass(from_py_object, str)]
 #[serde(transparent)]

@@ -6,6 +6,7 @@ use crate::pyinterop::pre::*;
 
 /// Used to optimize allocation when loading functions
 pub const FUNCTION_LEN_UPPER_BOUND: usize = 110_000;
+pub const OBJECT_LEN_UPPER_BOUND: usize = 20_000;
 pub const FILE_LIST_UNKNOWN_FILE: &str = "UNKNOWN";
 
 /// Discover and load the configuration TOML file.
