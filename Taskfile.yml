@@ -32,6 +32,15 @@ tasks:
 
   check-main:
     cmds:
+      - silent: true
+        cmd: |
+          if [ -n "$CI" ]; then
+            echo '==> checking uv.lock'
+            uv lock --check
+          else
+            echo '==> updating uv.lock'
+            uv lock
+          fi
       - task: cli-bindgen
       - task: py-bindgen
       - uv run --no-sync basedpyright --warnings
